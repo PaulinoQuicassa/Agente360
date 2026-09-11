@@ -1,8 +1,10 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Icon, IconSprite, type IconName } from "./Icon";
+import { useUtilizadorAtual } from "./auth";
+import { iniciais } from "./sharepoint";
 
 const headers: Record<string, { title: string; sub: string }> = {
-  "/": { title: "Olá, Cota Paulo", sub: "Rede de Agentes · Visão geral" },
+  "/": { title: "Rede de Agentes", sub: "Rede de Agentes · Visão geral" },
   "/captar": { title: "Captar Agente", sub: "Novo registo na rede" },
   "/confirm": { title: "Confirmação", sub: "Captação concluída" },
   "/agentes": { title: "Agentes", sub: "1 284 agentes na rede" },
@@ -33,6 +35,8 @@ function linkActive(path: string, pathname: string) {
 export function Layout() {
   const { pathname } = useLocation();
   const header = headers[pathname] ?? headers["/"];
+  const utilizador = useUtilizadorAtual();
+  const titulo = pathname === "/" ? `Olá, ${utilizador?.nome ?? "Agente"}` : header.title;
 
   return (
     <div className="nav-shell">
@@ -43,9 +47,11 @@ export function Layout() {
             <span className="app-header__dot" />
             AGENTE 360
           </div>
-          <div className="app-header__avatar">CP</div>
+          <div className="app-header__avatar" title={utilizador?.email}>
+            {utilizador ? iniciais(utilizador.nome) : "—"}
+          </div>
         </div>
-        <h1 className="app-header__title">{header.title}</h1>
+        <h1 className="app-header__title">{titulo}</h1>
         <p className="app-header__sub">{header.sub}</p>
       </header>
 

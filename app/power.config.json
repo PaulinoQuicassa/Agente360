@@ -9,6 +9,23 @@
   "buildEntryPoint": "index.html",
   "localAppUrl": "http://localhost:5173",
   "logoPath": "Default",
-  "connectionReferences": {},
+  "connectionReferences": {
+    "d073ba7a-fb7d-4c33-997e-0c01c4c76b80": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "dataSources": [
+        "bd_agentes_palhativa"
+      ],
+      "dataSets": {
+        "https://zapcoao.sharepoint.com/sites/AgentesAO": {
+          "dataSources": {
+            "bd_agentes_palhativa": {
+              "tableName": "BD_Agentes_Palhativa"
+            }
+          }
+        }
+      }
+    }
+  },
   "databaseReferences": {}
 }
