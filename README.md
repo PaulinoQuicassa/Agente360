@@ -18,12 +18,25 @@ O objecto central da aplicação é o **Agente**. A partir dele estão relaciona
 
 ```
 /
-├── README.md                          # Este ficheiro
+├── README.md
+├── AGENTS.md                          # Como Claude e Cursor publicam no Power Platform
+├── app/                               # Code App (React + TypeScript) — fonte da app em execução
 ├── docs/
-│   └── prompt-mestre-agente-360.md    # Especificação funcional completa (prompt mestre)
 └── design/
-    └── agente-360-mobile-design.html  # Protótipo interativo do design mobile
+    └── agente-360-mobile-design.html  # Protótipo HTML (não publica sozinho)
 ```
+
+## Publicar no Power Platform (Claude e Cursor)
+
+A app em [Power Apps](https://apps.powerapps.com/play/e/85de9078-2a11-e636-a7d4-4cfe77ad3656/app/65c47048-dcae-43a8-aa7d-e3916c319689) só actualiza depois de publicar a pasta `app/`:
+
+```bash
+cd app
+npm install
+npm run push
+```
+
+Ver detalhes em [`AGENTS.md`](AGENTS.md).
 
 ## Design
 
@@ -73,4 +86,4 @@ Ver especificação completa em [`docs/prompt-mestre-agente-360.md`](docs/prompt
 
 ## Estado do projecto
 
-🎨 Fase de design concluída · Desenvolvimento por iniciar
+🎨 Design no protótipo HTML · 🚧 Code App em `app/` ligada ao ambiente DEV: Paulino Quicassa

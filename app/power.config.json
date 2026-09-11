@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "appId": "65c47048-dcae-43a8-aa7d-e3916c319689",
+  "appDisplayName": "Agente 360",
+  "region": "prod",
+  "environmentId": "85de9078-2a11-e636-a7d4-4cfe77ad3656",
+  "description": "Gestão e acompanhamento da rede de agentes",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:5173",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {}
+}
