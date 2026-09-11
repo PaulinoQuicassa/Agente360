@@ -6,6 +6,8 @@
 // Models
 export * as BD_Agentes_PalhativaModel from './models/BD_Agentes_PalhativaModel';
 export * as CommonModels from './models/CommonModels';
+export * as ControlodevisitasAgentesModel from './models/ControlodevisitasAgentesModel';
 
 // Services
 export * from './services/BD_Agentes_PalhativaService';
+export * from './services/ControlodevisitasAgentesService';

@@ -1,0 +1,1914 @@
+{
+  "name": "Controlo de visitas Agentes",
+  "title": "Controlo de visitas Agentes",
+  "x-ms-permission": "read-write",
+  "x-ms-capabilities": {
+    "sortRestrictions": {
+      "sortable": true,
+      "unsortableProperties": [
+        "Zapadinhas",
+        "Observa_x00e7__x00e3_o",
+        "MeiosdigitaisusadopeloAgente",
+        "Tipos",
+        "TiposdeVisitas",
+        "{Identifier}",
+        "{IsFolder}",
+        "{Thumbnail}",
+        "{Link}",
+        "{Name}",
+        "{FilenameWithExtension}",
+        "{Path}",
+        "{FullPath}",
+        "{ModerationStatus}",
+        "{ModerationComment}",
+        "{ContentType}",
+        "{HasAttachments}",
+        "{Attachments}",
+        "{VersionNumber}",
+        "{TriggerWindowStartToken}",
+        "{TriggerWindowEndToken}"
+      ]
+    },
+    "filterRestrictions": {
+      "filterable": true,
+      "nonFilterableProperties": [
+        "Observa_x00e7__x00e3_o",
+        "{Identifier}",
+        "{IsFolder}",
+        "{Thumbnail}",
+        "{Link}",
+        "{Name}",
+        "{FilenameWithExtension}",
+        "{Path}",
+        "{FullPath}",
+        "{ModerationStatus}",
+        "{ModerationComment}",
+        "{ContentType}",
+        "{HasAttachments}",
+        "{Attachments}",
+        "{VersionNumber}",
+        "{TriggerWindowStartToken}",
+        "{TriggerWindowEndToken}"
+      ]
+    },
+    "isOnlyServerPagable": true,
+    "filterFunctionSupport": [
+      "and",
+      "or",
+      "eq",
+      "startswith",
+      "gt",
+      "ge",
+      "lt",
+      "le",
+      "ne"
+    ],
+    "serverPagingOptions": [
+      "top",
+      "skiptoken"
+    ],
+    "odataVersion": 3
+  },
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "UsaMeiodecarregamentoUSSD",
+        "UsaZapAgentesWeb",
+        "UsaonovoZapAgentesMobile",
+        "UsaoantigoZapAgentesMobile",
+        "TiposdeVisitas"
+      ],
+      "properties": {
+        "ID": {
+          "title": "ID",
+          "description": "ID do item de lista. Utilize este valor para especificar o item ao qual se aplicarão outras ações relacionadas com a lista.",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-keyType": "primary",
+          "x-ms-keyOrder": 1,
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          }
+        },
+        "Title": {
+          "title": "Título",
+          "type": "string",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "Codigo": {
+          "title": "Codigo do Agente",
+          "type": "number",
+          "format": "double",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          },
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
+        },
+        "Nomedoparceiro": {
+          "title": "Nome do parceiro",
+          "type": "string",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "Agente#Id": {
+          "title": "Tipo de agente Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Agente": {
+          "title": "Tipo de agente",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "8739ce5d-2155-42d2-aed0-ed397732736d"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "N_x00ba_depontosdevenda": {
+          "title": "Nº de pontos de venda",
+          "type": "number",
+          "format": "double",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          },
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
+        },
+        "Datadavisita": {
+          "title": "Data da visita",
+          "type": "string",
+          "format": "date",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          }
+        },
+        "Flybanner#Id": {
+          "title": "Flybanner Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Flybanner": {
+          "title": "Flybanner",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "448f8230-f9ff-41a8-a2aa-1b828632ed10"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "Marchadising#Id": {
+          "title": "Marchadising Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Marchadising": {
+          "title": "Marchadising",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "92f0735f-2577-4518-8fbd-a364fd369c7b"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "PlacapontoZap#Id": {
+          "title": "Placa ponto Zap Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "PlacapontoZap": {
+          "title": "Placa ponto Zap",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "eadaf1c3-79c7-4079-be18-bca04ffabb77"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "PendurantesAbertoefechado#Id": {
+          "title": "Pendurantes Aberto e fechado Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "PendurantesAbertoefechado": {
+          "title": "Pendurantes Aberto e fechado",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "1cdcaa28-1260-46fa-bf9f-00f83f0e92d3"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "Boxedemostra_x00e7__x00e3_o#Id": {
+          "title": "Boxe demostração Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Boxedemostra_x00e7__x00e3_o": {
+          "title": "Boxe demostração",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "376e624b-5c10-4d6e-99e0-be6d81efc4dc"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "PinturadeParede#Id": {
+          "title": "Pintura de Parede Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "PinturadeParede": {
+          "title": "Pintura de Parede",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "de6059b2-3bef-46e0-86dc-376335913eea"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "StockdeBoxes#Id": {
+          "title": "Stock de Boxes Id",
+          "type": "integer",
+          "format": "int64",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "StockdeBoxes": {
+          "title": "Stock de Boxes",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "x-ms-sp": {
+              "IsChoice": true
+            },
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Value": {
+              "title": "Value",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "12919a29-1388-4af3-9702-c8da5d88d70e"
+                },
+                "value-path": "Value",
+                "value-title": "Value",
+                "value-collection": "value"
+              }
+            },
+            "Id": {
+              "title": "Id",
+              "type": "integer",
+              "format": "int64",
+              "x-ms-visibility": "internal",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Value"
+          }
+        },
+        "Zapadinhas#Id": {
+          "title": "Zapadinhas/pontos Id",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "Zapadinhas@odata.type": {
+          "title": "Zapadinhas",
+          "type": "string",
+          "x-ms-visibility": "internal",
+          "x-ms-permission": "read-write"
+        },
+        "Zapadinhas": {
+          "title": "Zapadinhas/pontos",
+          "x-ms-permission": "read-write",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "x-ms-sort": "none",
+            "x-ms-capabilities": {
+              "x-ms-sp": {
+                "IsChoice": true
+              },
+              "filterFunctions": [
+                "eq"
+              ]
+            },
+            "properties": {
+              "@odata.type": {
+                "title": "@odata.type",
+                "x-ms-visibility": "internal",
+                "type": "string",
+                "x-ms-permission": "read-write"
+              },
+              "Value": {
+                "title": "Value",
+                "type": "string",
+                "x-ms-dynamic-values": {
+                  "operationId": "GetEntityValues",
+                  "parameters": {
+                    "dataset": {
+                      "parameter": "dataset"
+                    },
+                    "table": {
+                      "parameter": "table"
+                    },
+                    "id": "bc1d6666-7cf2-4fb3-b693-cad2c1ec3810"
+                  },
+                  "value-path": "Value",
+                  "value-title": "Value",
+                  "value-collection": "value"
+                }
+              },
+              "Id": {
+                "title": "Id",
+                "type": "integer",
+                "format": "int64",
+                "x-ms-visibility": "internal",
+                "x-ms-permission": "read-only"
+              }
+            },
+            "x-ms-displayFormat": {
+              "titleProperty": "Value"
+            }
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "DatadaPr_x00f3_ximaVisita": {
+          "title": "Data da Próxima Visita",
+          "type": "string",
+          "format": "date",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          }
+        },
+        "Observa_x00e7__x00e3_o": {
+          "title": "Observação",
+          "type": "string",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "none"
+        },
+        "Created": {
+          "title": "Criado",
+          "description": "Quando este item foi criado.",
+          "type": "string",
+          "format": "date-time",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          }
+        },
+        "Latitude": {
+          "title": "Latitude",
+          "type": "number",
+          "format": "double",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          },
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
+        },
+        "Longitude": {
+          "title": "Longitude",
+          "type": "number",
+          "format": "double",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          },
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
+        },
+        "Author#Claims": {
+          "title": "Criado por Claims",
+          "type": "string",
+          "description": "Identificador interno do utilizador que criou este item.",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Author": {
+          "title": "Criado por",
+          "description": "O utilizador que criou este item.",
+          "type": "object",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-only"
+            },
+            "Claims": {
+              "title": "Claims",
+              "type": "string",
+              "description": "Identificador interno do utilizador que criou este item.",
+              "x-ms-permission": "read-only",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "1df5e554-ec7e-46a6-901d-d85a3881cb18"
+                },
+                "value-path": "Claims",
+                "value-title": "DisplayName",
+                "value-collection": "value"
+              }
+            },
+            "DisplayName": {
+              "title": "DisplayName",
+              "type": "string",
+              "description": "O nome do utilizador que criou este item.",
+              "x-ms-permission": "read-only",
+              "x-ms-capabilities": {
+                "x-ms-sp": {
+                  "OdataQueryName": "Title"
+                },
+                "filterFunctions": [
+                  "eq",
+                  "startswith"
+                ]
+              }
+            },
+            "Email": {
+              "title": "Email",
+              "type": "string",
+              "description": "Endereço de e-mail do utilizador que criou este item.",
+              "format": "email",
+              "x-ms-permission": "read-only",
+              "x-ms-capabilities": {
+                "x-ms-sp": {
+                  "OdataQueryName": "EMail"
+                },
+                "filterFunctions": [
+                  "eq",
+                  "startswith"
+                ]
+              }
+            },
+            "Picture": {
+              "title": "Picture",
+              "type": "string",
+              "description": "Ligação para uma imagem do utilizador que criou este item.",
+              "format": "uri",
+              "x-ms-media-kind": "image",
+              "x-ms-media-default-folder-path": "/sites/AgentesAO",
+              "x-ms-media-base-url": "https://zapcoao.sharepoint.com/sites/AgentesAO",
+              "x-ms-permission": "read-only"
+            },
+            "Department": {
+              "title": "Department",
+              "type": "string",
+              "description": "Nome do departamento do utilizador que criou este item.",
+              "x-ms-permission": "read-only"
+            },
+            "JobTitle": {
+              "title": "JobTitle",
+              "type": "string",
+              "description": "Cargo do utilizador que criou este item.",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "DisplayName",
+            "subtitleProperty": "Email",
+            "thumbnailProperty": "Picture"
+          }
+        },
+        "Editor#Claims": {
+          "title": "Modificado por Claims",
+          "type": "string",
+          "description": "Identificador interno do utilizador que modificou este item pela última vez.",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "Editor": {
+          "title": "Modificado por",
+          "description": "O utilizador que modificou este item pela última vez.",
+          "type": "object",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-only"
+            },
+            "Claims": {
+              "title": "Claims",
+              "type": "string",
+              "description": "Identificador interno do utilizador que modificou este item pela última vez.",
+              "x-ms-permission": "read-only",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "d31655d1-1d5b-4511-95a1-7a09e9b75bf2"
+                },
+                "value-path": "Claims",
+                "value-title": "DisplayName",
+                "value-collection": "value"
+              }
+            },
+            "DisplayName": {
+              "title": "DisplayName",
+              "type": "string",
+              "description": "O nome do utilizador que modificou este item pela última vez.",
+              "x-ms-permission": "read-only",
+              "x-ms-capabilities": {
+                "x-ms-sp": {
+                  "OdataQueryName": "Title"
+                },
+                "filterFunctions": [
+                  "eq",
+                  "startswith"
+                ]
+              }
+            },
+            "Email": {
+              "title": "Email",
+              "type": "string",
+              "description": "Endereço de e-mail do utilizador que modificou este item pela última vez.",
+              "format": "email",
+              "x-ms-permission": "read-only",
+              "x-ms-capabilities": {
+                "x-ms-sp": {
+                  "OdataQueryName": "EMail"
+                },
+                "filterFunctions": [
+                  "eq",
+                  "startswith"
+                ]
+              }
+            },
+            "Picture": {
+              "title": "Picture",
+              "type": "string",
+              "description": "Ligação para uma imagem do utilizador que modificou este item pela última vez.",
+              "format": "uri",
+              "x-ms-media-kind": "image",
+              "x-ms-media-default-folder-path": "/sites/AgentesAO",
+              "x-ms-media-base-url": "https://zapcoao.sharepoint.com/sites/AgentesAO",
+              "x-ms-permission": "read-only"
+            },
+            "Department": {
+              "title": "Department",
+              "type": "string",
+              "description": "Nome do departamento do utilizador que modificou este item pela última vez.",
+              "x-ms-permission": "read-only"
+            },
+            "JobTitle": {
+              "title": "JobTitle",
+              "type": "string",
+              "description": "Cargo do utilizador que modificou este item pela última vez.",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "DisplayName",
+            "subtitleProperty": "Email",
+            "thumbnailProperty": "Picture"
+          }
+        },
+        "MeiosdigitaisusadopeloAgente#Id": {
+          "title": "Usa Zap Agentes Mobile Id",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "MeiosdigitaisusadopeloAgente@odata.type": {
+          "title": "MeiosdigitaisusadopeloAgente",
+          "type": "string",
+          "x-ms-visibility": "internal",
+          "x-ms-permission": "read-write"
+        },
+        "MeiosdigitaisusadopeloAgente": {
+          "title": "Usa Zap Agentes Mobile",
+          "x-ms-permission": "read-write",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "x-ms-sort": "none",
+            "x-ms-capabilities": {
+              "x-ms-sp": {
+                "IsChoice": true
+              },
+              "filterFunctions": [
+                "eq"
+              ]
+            },
+            "properties": {
+              "@odata.type": {
+                "title": "@odata.type",
+                "x-ms-visibility": "internal",
+                "type": "string",
+                "x-ms-permission": "read-write"
+              },
+              "Value": {
+                "title": "Value",
+                "type": "string",
+                "x-ms-dynamic-values": {
+                  "operationId": "GetEntityValues",
+                  "parameters": {
+                    "dataset": {
+                      "parameter": "dataset"
+                    },
+                    "table": {
+                      "parameter": "table"
+                    },
+                    "id": "4d9beae3-4f2f-4b93-829b-f4e1c9b83410"
+                  },
+                  "value-path": "Value",
+                  "value-title": "Value",
+                  "value-collection": "value"
+                }
+              },
+              "Id": {
+                "title": "Id",
+                "type": "integer",
+                "format": "int64",
+                "x-ms-visibility": "internal",
+                "x-ms-permission": "read-only"
+              }
+            },
+            "x-ms-displayFormat": {
+              "titleProperty": "Value"
+            }
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "UsaMeiodecarregamentoUSSD": {
+          "title": "Usa Meio de carregamento USSD",
+          "type": "boolean",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "default": true
+        },
+        "UsaZapAgentesWeb": {
+          "title": "Usa Zap Agentes Web",
+          "type": "boolean",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "default": true
+        },
+        "UsaonovoZapAgentesMobile": {
+          "title": "Usa o novo Zap Agentes Mobile",
+          "type": "boolean",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "default": true
+        },
+        "UsaoantigoZapAgentesMobile": {
+          "title": "Usa o antigo Zap Agentes Mobile",
+          "type": "boolean",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq"
+            ]
+          },
+          "default": true
+        },
+        "Tipos#Id": {
+          "title": "Tipo de Visita Id",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "Tipos@odata.type": {
+          "title": "Tipos",
+          "type": "string",
+          "x-ms-visibility": "internal",
+          "x-ms-permission": "read-write"
+        },
+        "Tipos": {
+          "title": "Tipo de Visita",
+          "x-ms-permission": "read-write",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "x-ms-sort": "none",
+            "x-ms-capabilities": {
+              "x-ms-sp": {
+                "IsChoice": true
+              },
+              "filterFunctions": [
+                "eq"
+              ]
+            },
+            "properties": {
+              "@odata.type": {
+                "title": "@odata.type",
+                "x-ms-visibility": "internal",
+                "type": "string",
+                "x-ms-permission": "read-write"
+              },
+              "Value": {
+                "title": "Value",
+                "type": "string",
+                "x-ms-dynamic-values": {
+                  "operationId": "GetEntityValues",
+                  "parameters": {
+                    "dataset": {
+                      "parameter": "dataset"
+                    },
+                    "table": {
+                      "parameter": "table"
+                    },
+                    "id": "dc38cf17-e8c4-4c61-a4d8-bf80a072925d"
+                  },
+                  "value-path": "Value",
+                  "value-title": "Value",
+                  "value-collection": "value"
+                }
+              },
+              "Id": {
+                "title": "Id",
+                "type": "integer",
+                "format": "int64",
+                "x-ms-visibility": "internal",
+                "x-ms-permission": "read-only"
+              }
+            },
+            "x-ms-displayFormat": {
+              "titleProperty": "Value"
+            }
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "TiposdeVisitas#Id": {
+          "title": "Tipos de Visitas Id",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "TiposdeVisitas@odata.type": {
+          "title": "TiposdeVisitas",
+          "type": "string",
+          "x-ms-visibility": "internal",
+          "x-ms-permission": "read-write"
+        },
+        "TiposdeVisitas": {
+          "title": "Tipos de Visitas",
+          "x-ms-permission": "read-write",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "x-ms-sort": "none",
+            "x-ms-capabilities": {
+              "x-ms-sp": {
+                "IsChoice": true
+              },
+              "filterFunctions": [
+                "eq"
+              ]
+            },
+            "properties": {
+              "@odata.type": {
+                "title": "@odata.type",
+                "x-ms-visibility": "internal",
+                "type": "string",
+                "x-ms-permission": "read-write"
+              },
+              "Value": {
+                "title": "Value",
+                "type": "string",
+                "x-ms-dynamic-values": {
+                  "operationId": "GetEntityValues",
+                  "parameters": {
+                    "dataset": {
+                      "parameter": "dataset"
+                    },
+                    "table": {
+                      "parameter": "table"
+                    },
+                    "id": "3b8fe757-3a34-446a-8a3e-b4abaf70e29e"
+                  },
+                  "value-path": "Value",
+                  "value-title": "Value",
+                  "value-collection": "value"
+                }
+              },
+              "Id": {
+                "title": "Id",
+                "type": "integer",
+                "format": "int64",
+                "x-ms-visibility": "internal",
+                "x-ms-permission": "read-only"
+              }
+            },
+            "x-ms-displayFormat": {
+              "titleProperty": "Value"
+            }
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference)"
+        },
+        "ContactodoAgente": {
+          "title": "Contacto do Agente",
+          "type": "number",
+          "format": "double",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          },
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
+        },
+        "Modified": {
+          "title": "Modificado",
+          "description": "Quando este item foi modificado pela última vez.",
+          "type": "string",
+          "format": "date-time",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
+            ]
+          }
+        },
+        "OData__ColorTag": {
+          "title": "Etiqueta de Cor",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "ComplianceAssetId": {
+          "title": "ID de Recurso de Conformidade",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "{Identifier}": {
+          "title": "Identificador",
+          "description": "Um valor que pode ser utilizado nas ações relacionadas com o ficheiro ao selecionar um ficheiro.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{IsFolder}": {
+          "title": "É pasta",
+          "description": "Verdadeiro quando o item é uma pasta. Caso contrário, é falso.",
+          "type": "boolean",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{Thumbnail}": {
+          "title": "Miniatura",
+          "description": "URL das miniaturas do item em três tamanhos diferentes, se disponível.",
+          "type": "object",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none",
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-only"
+            },
+            "Small": {
+              "title": "Small",
+              "type": "string",
+              "description": "URL para a miniatura pequena e altamente comprimida do item, se estiver disponível.",
+              "x-ms-permission": "read-only"
+            },
+            "Medium": {
+              "title": "Medium",
+              "type": "string",
+              "description": "URL para a miniatura padrão do item, se estiver disponível.",
+              "x-ms-permission": "read-only"
+            },
+            "Large": {
+              "title": "Large",
+              "type": "string",
+              "description": "URL para a miniatura maior do item, se estiver disponível.",
+              "x-ms-permission": "read-only"
+            }
+          }
+        },
+        "{Link}": {
+          "title": "Ligação para item",
+          "description": "Uma ligação que pode ser utilizada para aceder ao item de lista ou ficheiro. Só as pessoas com as permissões para o item poderão abrir a ligação.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{Name}": {
+          "title": "Nome",
+          "description": "O nome do ficheiro do item nas bibliotecas de documentos e o nome a apresentar do item nas listas.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{FilenameWithExtension}": {
+          "title": "Nome de ficheiro com a extensão",
+          "description": "Para bibliotecas, devolve o nome de ficheiro, incluindo a extensão. Para listas, devolve a propriedade de título.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{Path}": {
+          "title": "Caminho da pasta",
+          "description": "O caminho para a pasta onde se encontra o item, relativo ao endereço do site.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{FullPath}": {
+          "title": "Caminho Completo",
+          "description": "Caminho completo de um item ou de uma pasta ou de um ficheiro",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{ModerationStatus}": {
+          "title": "Estado da aprovação de conteúdos",
+          "description": "O estado de aprovação do conteúdo. Pode ser um dos seguintes: rascunho, pendente, aprovado ou rejeitado",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{ModerationComment}": {
+          "title": "Comentários associados à aprovação de conteúdos deste item de lista",
+          "description": "Comentários associados à moderação do item de lista.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{ContentType}#Id": {
+          "title": "Tipo de conteúdo Id",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-visibility": "internal"
+        },
+        "{ContentType}": {
+          "title": "Tipo de conteúdo",
+          "description": "Nome do Tipo de Conteúdo do item.",
+          "type": "object",
+          "x-ms-permission": "read-write",
+          "x-ms-sort": "none",
+          "properties": {
+            "@odata.type": {
+              "title": "@odata.type",
+              "x-ms-visibility": "internal",
+              "type": "string",
+              "x-ms-permission": "read-write"
+            },
+            "Id": {
+              "title": "Id",
+              "type": "string",
+              "x-ms-dynamic-values": {
+                "operationId": "GetEntityValues",
+                "parameters": {
+                  "dataset": {
+                    "parameter": "dataset"
+                  },
+                  "table": {
+                    "parameter": "table"
+                  },
+                  "id": "4651e8f2-38c9-4ad0-8def-41f743f76f30"
+                },
+                "value-path": "Id",
+                "value-title": "Name",
+                "value-collection": "value"
+              }
+            },
+            "Name": {
+              "title": "Name",
+              "type": "string",
+              "x-ms-permission": "read-only"
+            }
+          },
+          "x-ms-displayFormat": {
+            "titleProperty": "Name"
+          }
+        },
+        "{HasAttachments}": {
+          "title": "Tem anexos",
+          "description": "Indica a presença de anexos no item.",
+          "type": "boolean",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{Attachments}@odata.type": {
+          "title": "{Attachments}",
+          "type": "string",
+          "x-ms-visibility": "internal",
+          "x-ms-permission": "read-write"
+        },
+        "{Attachments}": {
+          "title": "Anexos",
+          "description": "Nunca devolve dados. Utilize os pontos finais Anexo para aceder aos anexos do item.",
+          "x-ms-permission": "read-write",
+          "targetEntity": "attachments",
+          "format": "x-ms-containedMediaEntity",
+          "x-ms-visibility": "internal",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "format": "x-ms-mediaEntity",
+            "x-ms-sort": "none",
+            "properties": {
+              "@odata.type": {
+                "title": "@odata.type",
+                "x-ms-visibility": "internal",
+                "type": "string",
+                "x-ms-permission": "read-write"
+              },
+              "Id": {
+                "title": "Id",
+                "type": "string",
+                "x-ms-keyType": "primary",
+                "x-ms-keyOrder": 1,
+                "x-ms-permission": "read-only"
+              },
+              "AbsoluteUri": {
+                "title": "AbsoluteUri",
+                "type": "string",
+                "format": "uri",
+                "x-ms-permission": "read-only"
+              },
+              "DisplayName": {
+                "title": "DisplayName",
+                "type": "string",
+                "x-ms-permission": "read-only"
+              }
+            }
+          },
+          "@odata.type": "#Collection(Microsoft.Azure.Connectors.SharePoint.SPListItemAttachment)"
+        },
+        "{VersionNumber}": {
+          "title": "Número de versão",
+          "description": "O número de versão do ficheiro ou do item de lista.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{TriggerWindowStartToken}": {
+          "title": "Token do Início do Intervalo de Tempo do Acionador",
+          "description": "Um token que expressa a hora da última verificação de fluxo. Utilize-o se quiser verificar se uma ou mais colunas foram modificadas desde a última verificação de fluxo.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "{TriggerWindowEndToken}": {
+          "title": "Token do Fim do Intervalo de Tempo do Acionador",
+          "description": "Um token que expressa a hora da verificação do fluxo atual. Utilize-o se quiser verificar se uma ou mais colunas foram modificadas desde a última verificação de fluxo.",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        }
+      },
+      "x-ms-relationships": {
+        "Agente": {
+          "targetEntity": "Agente",
+          "referentialConstraints": {
+            "Agente#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Flybanner": {
+          "targetEntity": "Flybanner",
+          "referentialConstraints": {
+            "Flybanner#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Marchadising": {
+          "targetEntity": "Marchadising",
+          "referentialConstraints": {
+            "Marchadising#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "PlacapontoZap": {
+          "targetEntity": "PlacapontoZap",
+          "referentialConstraints": {
+            "PlacapontoZap#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "PendurantesAbertoefechado": {
+          "targetEntity": "PendurantesAbertoefechado",
+          "referentialConstraints": {
+            "PendurantesAbertoefechado#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Boxedemostra_x00e7__x00e3_o": {
+          "targetEntity": "Boxedemostra_x00e7__x00e3_o",
+          "referentialConstraints": {
+            "Boxedemostra_x00e7__x00e3_o#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "PinturadeParede": {
+          "targetEntity": "PinturadeParede",
+          "referentialConstraints": {
+            "PinturadeParede#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "StockdeBoxes": {
+          "targetEntity": "StockdeBoxes",
+          "referentialConstraints": {
+            "StockdeBoxes#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Zapadinhas": {
+          "targetEntity": "Zapadinhas",
+          "referentialConstraints": {
+            "Zapadinhas#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Author": {
+          "targetEntity": "Author",
+          "referentialConstraints": {
+            "Author#Claims": {
+              "referencedProperty": "Claims"
+            }
+          }
+        },
+        "Editor": {
+          "targetEntity": "Editor",
+          "referentialConstraints": {
+            "Editor#Claims": {
+              "referencedProperty": "Claims"
+            }
+          }
+        },
+        "MeiosdigitaisusadopeloAgente": {
+          "targetEntity": "MeiosdigitaisusadopeloAgente",
+          "referentialConstraints": {
+            "MeiosdigitaisusadopeloAgente#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "Tipos": {
+          "targetEntity": "Tipos",
+          "referentialConstraints": {
+            "Tipos#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "TiposdeVisitas": {
+          "targetEntity": "TiposdeVisitas",
+          "referentialConstraints": {
+            "TiposdeVisitas#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        },
+        "{ContentType}": {
+          "targetEntity": "4651e8f2-38c9-4ad0-8def-41f743f76f30",
+          "referentialConstraints": {
+            "{ContentType}#Id": {
+              "referencedProperty": "Id"
+            }
+          }
+        }
+      },
+      "x-ms-displayFormat": {
+        "propertiesDisplayOrder": [
+          "Title",
+          "Codigo",
+          "Nomedoparceiro",
+          "N_x00ba_depontosdevenda",
+          "Datadavisita",
+          "Flybanner",
+          "Marchadising",
+          "PlacapontoZap",
+          "PendurantesAbertoefechado",
+          "Boxedemostra_x00e7__x00e3_o",
+          "PinturadeParede",
+          "StockdeBoxes",
+          "Zapadinhas",
+          "DatadaPr_x00f3_ximaVisita",
+          "Observa_x00e7__x00e3_o",
+          "Agente",
+          "Latitude",
+          "Longitude",
+          "MeiosdigitaisusadopeloAgente",
+          "UsaMeiodecarregamentoUSSD",
+          "UsaZapAgentesWeb",
+          "UsaonovoZapAgentesMobile",
+          "UsaoantigoZapAgentesMobile",
+          "Tipos",
+          "TiposdeVisitas",
+          "ContactodoAgente",
+          "{Attachments}"
+        ],
+        "propertiesCompactDisplayOrder": [
+          "Title",
+          "ID",
+          "Codigo",
+          "Nomedoparceiro",
+          "Agente",
+          "N_x00ba_depontosdevenda",
+          "Datadavisita",
+          "Flybanner",
+          "Marchadising",
+          "PlacapontoZap",
+          "PendurantesAbertoefechado",
+          "Boxedemostra_x00e7__x00e3_o",
+          "PinturadeParede",
+          "StockdeBoxes",
+          "Zapadinhas",
+          "DatadaPr_x00f3_ximaVisita",
+          "Observa_x00e7__x00e3_o",
+          "Created",
+          "Latitude",
+          "Longitude",
+          "Author",
+          "Editor",
+          "MeiosdigitaisusadopeloAgente",
+          "UsaMeiodecarregamentoUSSD",
+          "UsaZapAgentesWeb",
+          "UsaonovoZapAgentesMobile",
+          "UsaoantigoZapAgentesMobile",
+          "Tipos",
+          "TiposdeVisitas",
+          "ContactodoAgente",
+          "Modified"
+        ],
+        "propertiesTabularDisplayOrder": [
+          "Title",
+          "ID",
+          "Codigo",
+          "Nomedoparceiro",
+          "Agente",
+          "N_x00ba_depontosdevenda",
+          "Datadavisita",
+          "Flybanner",
+          "Marchadising",
+          "PlacapontoZap",
+          "PendurantesAbertoefechado",
+          "Boxedemostra_x00e7__x00e3_o",
+          "PinturadeParede",
+          "StockdeBoxes",
+          "Zapadinhas",
+          "DatadaPr_x00f3_ximaVisita",
+          "Observa_x00e7__x00e3_o",
+          "Created",
+          "Latitude",
+          "Longitude",
+          "Author",
+          "Editor",
+          "MeiosdigitaisusadopeloAgente",
+          "UsaMeiodecarregamentoUSSD",
+          "UsaZapAgentesWeb",
+          "UsaonovoZapAgentesMobile",
+          "UsaoantigoZapAgentesMobile",
+          "Tipos",
+          "TiposdeVisitas",
+          "ContactodoAgente",
+          "Modified"
+        ]
+      }
+    }
+  },
+  "referencedEntities": {
+    "Agente": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Agente",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Flybanner": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Flybanner",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Marchadising": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Marchadising",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "PlacapontoZap": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/PlacapontoZap",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "PendurantesAbertoefechado": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/PendurantesAbertoefechado",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Boxedemostra_x00e7__x00e3_o": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Boxedemostra_x00e7__x00e3_o",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "PinturadeParede": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/PinturadeParede",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "StockdeBoxes": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/StockdeBoxes",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Zapadinhas": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Zapadinhas",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Author": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Author",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Editor": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Editor",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "MeiosdigitaisusadopeloAgente": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/MeiosdigitaisusadopeloAgente",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "Tipos": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/Tipos",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "TiposdeVisitas": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/TiposdeVisitas",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    },
+    "4651e8f2-38c9-4ad0-8def-41f743f76f30": {
+      "lookupEndpoint": {
+        "path": "/tables/5993f007-b965-4d60-bb39-2f8403c6649f/entities/%257bContentType%257d",
+        "capabilities": {
+          "searchable": true,
+          "requiresSearch": false
+        }
+      }
+    }
+  },
+  "webUrl": "https://zapcoao.sharepoint.com/sites/AgentesAO/Lists/Controlo de visitas Agentes/AllItems.aspx",
+  "x-ms-connection-version": ""
+}

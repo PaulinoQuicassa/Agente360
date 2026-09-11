@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "./Icon";
 import {
@@ -12,11 +12,21 @@ import {
   TIPOS_AGENTE,
   TIPOS_AGENTE_VISITA,
   TIPOS_VISITA,
+  actividadeRecente,
   badgeClassAgente,
   calcularRappel,
+  contarPorProvincia,
+  criarAgente,
   formatarData,
   formatarMoeda,
+  formatarNumero,
+  indicadoresDashboard,
   iniciais,
+  municipiosDaProvincia,
+  provincasDosAgentes,
+  proximoCodigoAgente,
+  RAPPEL_PVP_MINIMO,
+  temRappel,
   tipoAgenteVisitaPadrao,
   useAgentesReais,
   type Agente,
@@ -25,18 +35,63 @@ import {
   type TipoAgenteVisita,
   type TipoVisita,
 } from "./sharepoint";
+import {
+  MENSAGEM_ERRO_GRAVACAO,
+  criarVisita,
+  guardarChecklist,
+  useResumoVisitas,
+  useVisitasDoAgente,
+  type Visita,
+} from "./visitas";
 
-const municipios: Record<string, string[]> = {
-  Luanda: ["Luanda", "Cazenga", "Cacuaco", "Talatona", "Viana", "Belas", "Icolo e Bengo", "Kilamba Kiaxi"],
-  Benguela: ["Benguela", "Lobito", "Catumbela", "Baía Farta", "Cubal"],
-  "Huíla": ["Lubango", "Matala", "Humpata", "Caconda", "Chibia"],
-  Huambo: ["Huambo", "Caála", "Bailundo", "Londuimbali"],
-};
+const PROVINCIAS_ANGOLA = [
+  "Bengo",
+  "Benguela",
+  "Bié",
+  "Cabinda",
+  "Cuando Cubango",
+  "Cuanza Norte",
+  "Cuanza Sul",
+  "Cunene",
+  "Huambo",
+  "Huíla",
+  "Luanda",
+  "Lunda Norte",
+  "Lunda Sul",
+  "Malanje",
+  "Moxico",
+  "Namibe",
+  "Uíge",
+  "Zaire",
+];
 
-const provincas = ["Luanda", "Benguela", "Huíla", "Huambo", "Cabinda", "Bengo", "Bié", "Cuando Cubango", "Cuanza Norte", "Cuanza Sul", "Cunene", "Lunda Norte", "Lunda Sul", "Malanje", "Moxico", "Namibe", "Uíge", "Zaire"];
+const CORES_BARRA = ["var(--cor-azul)", "var(--cor-magenta)", "var(--cor-amarelo-escuro)"];
+
+function Delta({ valor, sufixo = "vs. mês ant." }: { valor: number; sufixo?: string }) {
+  if (valor > 0) return <div className="delta up">▲ +{formatarNumero(valor)} {sufixo}</div>;
+  if (valor < 0) return <div className="delta down">▼ {formatarNumero(valor)} {sufixo}</div>;
+  return <div className="delta">= {sufixo}</div>;
+}
 
 function Carregando({ mensagem = "A carregar…" }: { mensagem?: string }) {
   return <div className="empty-state">{mensagem}</div>;
+}
+
+function IndicadoresVisitas() {
+  const { resumo, carregando, erro } = useResumoVisitas();
+  if (erro) return null;
+
+  const valor = (n?: number) => (carregando || n === undefined ? "…" : formatarNumero(n));
+  return (
+    <>
+      <div className="section-title">Visitas<span className="link">{carregando ? "A carregar…" : "Últimos 2 meses"}</span></div>
+      <div className="kpi-scroll">
+        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.hoje)}</div><div className="label">Visitas hoje</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="clipboard" /></div><div className="num">{valor(resumo?.esteMes)}</div><div className="label">Visitas este mês</div>{resumo && <Delta valor={resumo.esteMes - resumo.mesAnterior} sufixo="vs. período igual" />}</div>
+        <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.proximos7Dias)}</div><div className="label">Agendadas 7 dias</div></div>
+      </div>
+    </>
+  );
 }
 
 function ErroCarregamento({ tentarNovamente }: { tentarNovamente: () => void }) {
@@ -53,33 +108,67 @@ function ErroCarregamento({ tentarNovamente }: { tentarNovamente: () => void }) 
 }
 
 export function Dashboard() {
+  const { agentes, carregando, progresso, erro, tentarNovamente } = useAgentesReais();
+  const indicadores = useMemo(() => indicadoresDashboard(agentes), [agentes]);
+  const provincias = useMemo(() => contarPorProvincia(agentes), [agentes]);
+  const actividades = useMemo(() => actividadeRecente(agentes), [agentes]);
+  const maxProvincia = provincias[0]?.total ?? 0;
+
+  if (erro && agentes.length === 0) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
+  if (carregando && agentes.length === 0) {
+    return <Carregando mensagem={progresso > 0 ? `A carregar agentes… (${formatarNumero(progresso)})` : "A carregar agentes…"} />;
+  }
+
   return (
     <>
-      <div className="section-title">Indicadores<span className="link link-chev">Este mês <Icon name="chevron" /></span></div>
-      <div className="kpi-scroll">
-        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="people" /></div><div className="num">1 284</div><div className="label">Total de Agentes</div><div className="delta up">▲ +42 vs. mês ant.</div></div>
-        <div className="kpi-card"><div className="kpi-icon kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="user-check" /></div><div className="num">967</div><div className="label">Agentes Activos</div><div className="delta up">▲ +18</div></div>
-        <div className="kpi-card"><div className="kpi-icon kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="user-plus" /></div><div className="num">56</div><div className="label">Novos Captados</div><div className="delta up">▲ +9</div></div>
-        <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="clipboard" /></div><div className="num">83</div><div className="label">Em Análise</div><div className="delta down">▼ -5</div></div>
-        <div className="kpi-card"><div className="kpi-icon kpi-vermelho" style={{ background: "#FBE7E8" }}><Icon name="file" /></div><div className="num">31</div><div className="label">Doc. Pendente</div><div className="delta down">▼ -2</div></div>
-        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="pin" /></div><div className="num">412</div><div className="label">Visitas Realizadas</div><div className="delta up">▲ +64</div></div>
+      <div className="section-title">
+        Indicadores
+        <span className="link">{carregando ? `A carregar… (${formatarNumero(agentes.length)})` : "Este mês"}</span>
       </div>
+      <div className="kpi-scroll">
+        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="people" /></div><div className="num">{formatarNumero(indicadores.total)}</div><div className="label">Total de Agentes</div><Delta valor={indicadores.novosEsteMes} sufixo="este mês" /></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="user-check" /></div><div className="num">{formatarNumero(indicadores.comInvestimentos)}</div><div className="label">Com investimentos</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="user-plus" /></div><div className="num">{formatarNumero(indicadores.novosEsteMes)}</div><div className="label">Novos este mês</div><Delta valor={indicadores.deltaNovos} /></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="clipboard" /></div><div className="num">{formatarNumero(indicadores.semInvestimentos)}</div><div className="label">Sem investimentos</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="people" /></div><div className="num">{formatarNumero(indicadores.produto)}</div><div className="label">Agentes Produto</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="people" /></div><div className="num">{formatarNumero(indicadores.zapadinha)}</div><div className="label">Agentes Zapadinha</div></div>
+      </div>
+      <IndicadoresVisitas />
       <div className="cta-row">
         <Link to="/captar" className="cta cta-captar"><Icon name="plus" /><span className="cta-label">CAPTAR</span><span className="cta-sub">Novo agente para a rede</span></Link>
         <Link to="/visitar" className="cta cta-visitar"><Icon name="pin" /><span className="cta-label">VISITAR</span><span className="cta-sub">Registar visita a agente</span></Link>
       </div>
-      <div className="section-title">Agentes por Província<Link to="/agentes" className="link">Ver todos</Link></div>
-      <div className="card">
-        <div className="bar-row"><div className="prov">Luanda</div><div className="bar-track"><div className="bar-fill" style={{ width: "82%" }} /></div><div className="val">612</div></div>
-        <div className="bar-row"><div className="prov">Benguela</div><div className="bar-track"><div className="bar-fill" style={{ width: "46%", background: "var(--cor-magenta)" }} /></div><div className="val">241</div></div>
-        <div className="bar-row"><div className="prov">Huíla</div><div className="bar-track"><div className="bar-fill" style={{ width: "32%", background: "var(--cor-amarelo-escuro)" }} /></div><div className="val">168</div></div>
-        <div className="bar-row"><div className="prov">Huambo</div><div className="bar-track"><div className="bar-fill" style={{ width: "20%" }} /></div><div className="val">96</div></div>
+      <div className="cta-row">
+        <Link to="/rappel" className="cta cta-rappel"><Icon name="wallet" /><span className="cta-label">SIMULADOR DE RAPPEL</span><span className="cta-sub">Calcular comissão do agente</span></Link>
       </div>
-      <div className="section-title">Actividade Recente<span className="link">Ver tudo</span></div>
+      <div className="section-title">Agentes por Província<Link to="/agentes" className="link">Ver todos</Link></div>
+      <div className="card prov-list">
+        {provincias.length === 0 && <div className="empty-state" style={{ padding: 8 }}>Sem agentes na lista.</div>}
+        {provincias.map((p, i) => (
+          <div className="bar-row" key={p.provincia}>
+            <div className="prov" title={p.provincia}>{p.provincia}</div>
+            <div className="bar-track">
+              <div className="bar-fill" style={{ width: `${maxProvincia ? (p.total / maxProvincia) * 100 : 0}%`, background: CORES_BARRA[i % CORES_BARRA.length] }} />
+            </div>
+            <div className="val">{formatarNumero(p.total)}</div>
+          </div>
+        ))}
+      </div>
+      <div className="section-title">Actividade Recente<Link to="/agentes" className="link">Ver todos</Link></div>
       <div className="card">
-        <div className="activity-item"><div className="activity-icon activity-add" style={{ background: "#FFF7D6" }}><Icon name="user-plus" /></div><div><div className="activity-title">Agente captado · 1000077</div><div className="activity-sub">Joana Kizua · Luanda, Cazenga</div></div><div className="activity-time">há 12 min</div></div>
-        <div className="activity-item"><div className="activity-icon activity-pin" style={{ background: "#E5F3FB" }}><Icon name="pin" /></div><div><div className="activity-title">Visita registada</div><div className="activity-sub">Manuel Sozinho · Talatona</div></div><div className="activity-time">há 47 min</div></div>
-        <div className="activity-item"><div className="activity-icon activity-doc" style={{ background: "#FBE7E8" }}><Icon name="file" /></div><div><div className="activity-title">Documentação pendente</div><div className="activity-sub">Rosa Ngueve · Benguela</div></div><div className="activity-time">há 2h</div></div>
+        {actividades.length === 0 && <div className="empty-state" style={{ padding: 8 }}>Sem alterações recentes.</div>}
+        {actividades.map((item) => (
+          <Link to={`/perfil?agente=${item.codigoAgente}`} key={item.id} className="activity-item">
+            <div className="activity-icon activity-add" style={{ background: item.tipo === "captado" ? "#FFF7D6" : "#E5F3FB", color: item.tipo === "captado" ? "#8A6D00" : "var(--cor-azul)" }}>
+              <Icon name={item.tipo === "captado" ? "user-plus" : "user-check"} />
+            </div>
+            <div>
+              <div className="activity-title">{item.titulo}</div>
+              <div className="activity-sub">{item.subtitulo}</div>
+            </div>
+            <div className="activity-time">{item.quando}</div>
+          </Link>
+        ))}
       </div>
     </>
   );
@@ -89,44 +178,61 @@ interface DadosCaptar {
   nome: string;
   provincia: string;
   municipio: string;
-  endereco: string;
-  contacto: string;
   email: string;
   tipoAgente: TipoAgente;
 }
 
 export function Captar() {
   const navigate = useNavigate();
+  const { agentes, carregando } = useAgentesReais();
   const [form, setForm] = useState<DadosCaptar>({
     nome: "",
     provincia: "",
     municipio: "",
-    endereco: "",
-    contacto: "",
     email: "",
     tipoAgente: TIPOS_AGENTE[0],
   });
   const [erros, setErros] = useState<Partial<Record<keyof DadosCaptar, string>>>({});
-  const munList = municipios[form.provincia];
+  const [aGravar, setAGravar] = useState(false);
+  const [erroGravacao, setErroGravacao] = useState("");
+
+  const provincias = useMemo(() => {
+    const conjunto = new Set([...PROVINCIAS_ANGOLA, ...provincasDosAgentes(agentes)]);
+    return [...conjunto].sort((a, b) => a.localeCompare(b, "pt"));
+  }, [agentes]);
+  const munList = municipiosDaProvincia(agentes, form.provincia);
 
   function actualizar<K extends keyof DadosCaptar>(campo: K, valor: DadosCaptar[K]) {
     setForm((f) => ({ ...f, [campo]: valor, ...(campo === "provincia" ? { municipio: "" } : {}) }));
   }
 
-  function submeter(e: FormEvent) {
+  async function submeter(e: FormEvent) {
     e.preventDefault();
     const novosErros: typeof erros = {};
     if (!form.nome.trim()) novosErros.nome = "Indique o nome do agente.";
     if (!form.provincia) novosErros.provincia = "Seleccione a província.";
-    if (!form.municipio) novosErros.municipio = "Seleccione o município.";
-    if (!form.endereco.trim()) novosErros.endereco = "Indique o endereço.";
-    if (!form.contacto.trim()) novosErros.contacto = "Indique um contacto.";
+    if (!form.municipio.trim()) novosErros.municipio = "Indique o município.";
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) novosErros.email = "Email inválido.";
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    const codigoAgente = Math.floor(1000000 + Math.random() * 8999999);
-    navigate("/confirm", { state: { ...form, codigoAgente, estado: "Ag-S-Investimentos" as EstadoAgente } });
+    setAGravar(true);
+    setErroGravacao("");
+    try {
+      const criado = await criarAgente({
+        codigoAgente: proximoCodigoAgente(agentes),
+        nome: form.nome,
+        provincia: form.provincia,
+        municipio: form.municipio,
+        tipoAgente: form.tipoAgente,
+        email: form.email,
+      });
+      navigate("/confirm", { state: { ...form, codigoAgente: criado.codigoAgente, estado: criado.estado } });
+    } catch {
+      setErroGravacao("Não foi possível gravar o agente no SharePoint. Tente novamente.");
+    } finally {
+      setAGravar(false);
+    }
   }
 
   return (
@@ -141,27 +247,25 @@ export function Captar() {
         <label>Província <span className="req">*</span></label>
         <select value={form.provincia} onChange={(e) => actualizar("provincia", e.target.value)}>
           <option value="">Selecione a província</option>
-          {provincas.map((p) => <option key={p}>{p}</option>)}
+          {provincias.map((p) => <option key={p}>{p}</option>)}
         </select>
         {erros.provincia && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.provincia}</div>}
       </div>
       <div className="field">
         <label>Município <span className="req">*</span></label>
-        <select value={form.municipio} disabled={!form.provincia} onChange={(e) => actualizar("municipio", e.target.value)}>
-          <option value="">{form.provincia ? "Selecione o município" : "Selecione primeiro a província"}</option>
-          {(munList ?? (form.provincia ? ["Sede Municipal"] : [])).map((m) => <option key={m}>{m}</option>)}
-        </select>
+        <input
+          type="text"
+          list="municipios-reais"
+          placeholder={form.provincia ? "Município" : "Selecione primeiro a província"}
+          disabled={!form.provincia}
+          value={form.municipio}
+          onChange={(e) => actualizar("municipio", e.target.value)}
+        />
+        <datalist id="municipios-reais">
+          {munList.map((m) => <option key={m} value={m} />)}
+        </datalist>
         {erros.municipio && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.municipio}</div>}
-      </div>
-      <div className="field">
-        <label>Endereço <span className="req">*</span></label>
-        <input type="text" placeholder="Rua, bairro, referência" value={form.endereco} onChange={(e) => actualizar("endereco", e.target.value)} />
-        {erros.endereco && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.endereco}</div>}
-      </div>
-      <div className="field">
-        <label>Contacto <span className="req">*</span></label>
-        <input type="tel" placeholder="9XX XXX XXX" value={form.contacto} onChange={(e) => actualizar("contacto", e.target.value)} />
-        {erros.contacto && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.contacto}</div>}
+        {form.provincia && munList.length > 0 && <div className="hint">Sugestões a partir dos municípios já existentes nesta província.</div>}
       </div>
       <div className="field">
         <label>Email</label>
@@ -174,9 +278,10 @@ export function Captar() {
           {TIPOS_AGENTE.map((t) => <option key={t}>{t}</option>)}
         </select>
       </div>
-      <div className="section-title">Documentação</div>
-      <div className="upload-box"><Icon name="upload" /><b>Toca para associar documentos</b><br />BI, comprovativo de morada ou outros (PDF, JPG)</div>
-      <button type="submit" className="btn-primary">Captar Agente</button>
+      {erroGravacao && <div className="hint" style={{ color: "var(--cor-erro)", marginBottom: 12 }}>{erroGravacao}</div>}
+      <button type="submit" className="btn-primary" disabled={aGravar || carregando}>
+        {aGravar ? "A gravar no SharePoint…" : "Captar Agente"}
+      </button>
     </form>
   );
 }
@@ -250,10 +355,11 @@ export function Agentes() {
           <button key={f} className={`chip${filtro === f ? " active" : ""}`} onClick={() => setFiltro(f)}>{f}</button>
         ))}
       </div>
-      {carregando && <Carregando mensagem={progresso > 0 ? `A carregar agentes… (${progresso})` : "A carregar agentes…"} />}
-      {!carregando && erro && <ErroCarregamento tentarNovamente={tentarNovamente} />}
+      {carregando && agentes.length === 0 && <Carregando mensagem={progresso > 0 ? `A carregar agentes… (${formatarNumero(progresso)})` : "A carregar agentes…"} />}
+      {carregando && agentes.length > 0 && <div className="empty-state" style={{ padding: "8px 0 14px" }}>A carregar mais agentes… ({formatarNumero(progresso)})</div>}
+      {!carregando && erro && agentes.length === 0 && <ErroCarregamento tentarNovamente={tentarNovamente} />}
       {!carregando && !erro && filtrados.length === 0 && <div className="empty-state">Nenhum agente encontrado com estes critérios.</div>}
-      {!carregando && !erro && filtrados.map((a) => (
+      {filtrados.map((a) => (
         <Link to={`/perfil?agente=${a.codigoAgente}`} key={a.id} className="agent-item">
           <div className="agent-avatar">{iniciais(a.nome)}</div>
           <div><div className="agent-name">{a.nome}</div><div className="agent-meta">{a.codigoAgente} · {a.municipio}, {a.provincia}</div></div>
@@ -290,9 +396,9 @@ export function Perfil() {
         </div>
         <div className="profile-stats">
           <div className="pstat"><div className="pnum">{formatarData(agente.dataCaptacao)}</div><div className="plabel">Data de captação</div></div>
+          <div className="pstat"><div className="pnum">{formatarData(agente.dataActualizacao)}</div><div className="plabel">Última actualização</div></div>
           <div className="pstat"><div className="pnum">—</div><div className="plabel">Última visita</div></div>
-          <div className="pstat"><div className="pnum">0</div><div className="plabel">Nº de visitas</div></div>
-          <div className="pstat"><div className="pnum">1/2</div><div className="plabel">Documentos</div></div>
+          <div className="pstat"><div className="pnum">—</div><div className="plabel">Documentos</div></div>
         </div>
       </div>
       <div className="tabs-scroll">
@@ -310,24 +416,85 @@ export function Perfil() {
       {tab === "resumo" && (
         <>
           <div className="card">
-            <div className="info-row"><span className="k">Contacto</span><span className="v">{agente.contacto ?? "—"}</span></div>
             <div className="info-row"><span className="k">Email</span><span className="v">{agente.email ?? "—"}</span></div>
-            <div className="info-row"><span className="k">Endereço</span><span className="v">{agente.endereco ?? "—"}</span></div>
-            <div className="info-row"><span className="k">Município</span><span className="v">{agente.municipio}, {agente.provincia}</span></div>
+            <div className="info-row"><span className="k">Município</span><span className="v">{[agente.municipio, agente.provincia].filter(Boolean).join(", ") || "—"}</span></div>
+            <div className="info-row"><span className="k">Região</span><span className="v">{agente.regiao ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Zona</span><span className="v">{agente.zona ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Consultor</span><span className="v">{agente.consultor ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Coordenador</span><span className="v">{agente.coordenador ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Perfil</span><span className="v">{agente.perfil ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Unidade de gestão</span><span className="v">{agente.unidadeGestao ?? "—"}</span></div>
+            <div className="info-row"><span className="k">Captado por</span><span className="v">{agente.utilizadorCaptacao || "—"}</span></div>
           </div>
           <button className="btn-primary" onClick={() => navigate(`/visitar?agente=${agente.codigoAgente}`)}>Iniciar Visita a este Agente</button>
         </>
       )}
-      {tab === "visitas" && <div className="card empty-state">Ainda sem visitas registadas para este agente.</div>}
-      {tab === "checklist" && <div className="card empty-state">Sem checklists associados.</div>}
-      {tab === "docs" && (
-        <div className="card">
-          <div className="info-row"><span className="k">Bilhete de Identidade</span><span className="v"><span className="badge badge-vermelho">Em falta</span></span></div>
-          <div className="info-row"><span className="k">Comprovativo de morada</span><span className="v"><span className="badge badge-vermelho">Em falta</span></span></div>
-        </div>
-      )}
+      {tab === "visitas" && <VisitasDoAgente codigoAgente={agente.codigoAgente} />}
+      {tab === "checklist" && <ChecklistDoAgente codigoAgente={agente.codigoAgente} />}
+      {tab === "docs" && <div className="card empty-state">A lista de agentes não tem documentos associados.</div>}
       {tab === "rappel" && <div className="card empty-state">Sem volume registado neste período.</div>}
       {tab === "pagamentos" && <div className="card empty-state">Sem pagamentos processados ainda.</div>}
+    </>
+  );
+}
+
+function CartaoVisita({ visita }: { visita: Visita }) {
+  return (
+    <div className="card">
+      <div className="info-row">
+        <span className="k">{formatarData(visita.dataVisita)}</span>
+        <span className="v">{visita.tiposVisita.join(" · ") || "—"}</span>
+      </div>
+      {visita.nomeParceiro && <div className="info-row"><span className="k">Parceiro</span><span className="v">{visita.nomeParceiro}</span></div>}
+      {visita.utilizador && <div className="info-row"><span className="k">Registada por</span><span className="v">{visita.utilizador}</span></div>}
+      {visita.latitude !== undefined && visita.longitude !== undefined && (
+        <div className="info-row"><span className="k">Localização</span><span className="v">{visita.latitude.toFixed(4)}, {visita.longitude.toFixed(4)}</span></div>
+      )}
+      {visita.proximaVisita && <div className="info-row"><span className="k">Próxima visita</span><span className="v">{formatarData(visita.proximaVisita)}</span></div>}
+      {visita.observacao && <div className="info-row"><span className="k">Observação</span><span className="v">{visita.observacao}</span></div>}
+      {!visita.temChecklist && <span className="badge badge-cinza" style={{ marginTop: 8 }}>Checklist por preencher</span>}
+    </div>
+  );
+}
+
+function VisitasDoAgente({ codigoAgente }: { codigoAgente: number }) {
+  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente);
+  if (carregando) return <Carregando mensagem="A carregar visitas…" />;
+  if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
+  if (visitas.length === 0) return <div className="card empty-state">Ainda sem visitas registadas para este agente.</div>;
+  return <>{visitas.map((v) => <CartaoVisita key={v.id} visita={v} />)}</>;
+}
+
+function ChecklistDoAgente({ codigoAgente }: { codigoAgente: number }) {
+  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente);
+  if (carregando) return <Carregando mensagem="A carregar checklist…" />;
+  if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
+
+  const ultima = visitas.find((v) => v.temChecklist);
+  if (!ultima) return <div className="card empty-state">Sem checklists associados.</div>;
+
+  const linhas: [string, string][] = [
+    ["Flybanner", ultima.flybanner],
+    ["Merchandising", ultima.merchandising],
+    ["Placa Ponto ZAP", ultima.placaPontoZap],
+    ["Pendurantes", ultima.pendurantes],
+    ["Boxe demonstração", ultima.boxeDemonstracao],
+    ["Pintura de parede", ultima.pinturaParede],
+    ["Stock de boxes", ultima.stockDeBoxes],
+    ["Zapadinhas / pontos", ultima.zapadinhas.join(", ")],
+    ["Usa Zap Agentes Mobile", ultima.usaZapAgentesMobile.join(", ")],
+    ["Carregamento USSD", ultima.ussd ? "Sim" : "Não"],
+    ["Zap Agentes Web", ultima.web ? "Sim" : "Não"],
+    ["Novo Zap Agentes Mobile", ultima.novoMobile ? "Sim" : "Não"],
+    ["Antigo Zap Agentes Mobile", ultima.antigoMobile ? "Sim" : "Não"],
+  ];
+
+  return (
+    <>
+      <div className="section-title" style={{ marginTop: 2 }}>Checklist de {formatarData(ultima.dataVisita)}</div>
+      <div className="card">
+        {linhas.map(([k, v]) => <div className="info-row" key={k}><span className="k">{k}</span><span className="v">{v || "—"}</span></div>)}
+      </div>
     </>
   );
 }
@@ -350,15 +517,17 @@ type EstadoGps = "a_obter" | "obtida" | "erro";
 
 function VisitarForm({ agente }: { agente: Agente }) {
   const navigate = useNavigate();
-  const [estadoGps, setEstadoGps] = useState<EstadoGps>("obtida");
-  const [localizacao] = useState({ latitude: -8.8368, longitude: 13.2343 });
+  const [estadoGps, setEstadoGps] = useState<EstadoGps>("a_obter");
+  const [localizacao, setLocalizacao] = useState<{ latitude: number; longitude: number } | null>(null);
   const [tipoVisita, setTipoVisita] = useState<TipoVisita>(TIPOS_VISITA[0]);
   const [tipoAgenteVisita, setTipoAgenteVisita] = useState<TipoAgenteVisita>(tipoAgenteVisitaPadrao(agente.tipoAgente));
   const [codigoAgente, setCodigoAgente] = useState(agente.codigoAgente);
-  const [contactoAgente, setContactoAgente] = useState((agente.contacto ?? "").replace(/\D/g, ""));
+  const [contactoAgente, setContactoAgente] = useState("");
   const [nomeParceiro, setNomeParceiro] = useState("");
   const [pontosVenda, setPontosVenda] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [aGravar, setAGravar] = useState(false);
+  const [erroGravacao, setErroGravacao] = useState("");
 
   function obterLocalizacao() {
     if (!("geolocation" in navigator)) {
@@ -367,16 +536,41 @@ function VisitarForm({ agente }: { agente: Agente }) {
     }
     setEstadoGps("a_obter");
     navigator.geolocation.getCurrentPosition(
-      () => setEstadoGps("obtida"),
+      (pos) => {
+        setLocalizacao({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setEstadoGps("obtida");
+      },
       () => setEstadoGps("erro"),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
-  function submeter(e: FormEvent) {
+  useEffect(() => {
+    obterLocalizacao();
+  }, []);
+
+  async function submeter(e: FormEvent) {
     e.preventDefault();
-    if (estadoGps !== "obtida") return;
-    navigate(`/checklist?agente=${agente.codigoAgente}`);
+    if (estadoGps !== "obtida" || !localizacao || aGravar) return;
+    setAGravar(true);
+    setErroGravacao("");
+    try {
+      const idVisita = await criarVisita({
+        codigoAgente,
+        tipoAgente: tipoAgenteVisita,
+        tipoVisita,
+        nomeParceiro,
+        contactoAgente,
+        pontosVenda,
+        observacoes,
+        latitude: localizacao.latitude,
+        longitude: localizacao.longitude,
+      });
+      navigate(`/checklist?agente=${codigoAgente}&visita=${idVisita}`);
+    } catch {
+      setErroGravacao(MENSAGEM_ERRO_GRAVACAO);
+      setAGravar(false);
+    }
   }
 
   return (
@@ -387,10 +581,10 @@ function VisitarForm({ agente }: { agente: Agente }) {
         <div><div className="agent-name">{agente.nome}</div><div className="agent-meta">{agente.codigoAgente} · {agente.municipio}, {agente.provincia}</div></div>
         <div className="agent-right"><span className="link" style={{ color: "var(--cor-azul)", fontSize: 11, fontWeight: 700 }} onClick={() => navigate("/agentes")}>Trocar</span></div>
       </div>
-      {estadoGps === "obtida" && (
+      {estadoGps === "obtida" && localizacao && (
         <div className="gps-card">
           <div className="gps-icon"><Icon name="pin" /></div>
-          <div className="gps-text"><b>Localização obtida</b><span>Lat {localizacao.latitude.toFixed(4)} · Long {localizacao.longitude.toFixed(4)} · há instantes</span></div>
+          <div className="gps-text"><b>Localização obtida</b><span>Lat {localizacao.latitude.toFixed(4)} · Long {localizacao.longitude.toFixed(4)}</span></div>
         </div>
       )}
       {estadoGps === "a_obter" && (
@@ -417,11 +611,14 @@ function VisitarForm({ agente }: { agente: Agente }) {
         </select>
       </div>
       <div className="field"><label>Código do Agente</label><input type="number" value={codigoAgente} onChange={(e) => setCodigoAgente(Number(e.target.value) || 0)} /><div className="hint">Guardado como número na lista SharePoint "Controlo de visitas Agentes".</div></div>
-      <div className="field"><label>Contacto do Agente</label><input type="tel" placeholder="9XX XXX XXX" value={contactoAgente} onChange={(e) => setContactoAgente(e.target.value)} /></div>
+      <div className="field"><label>Contacto do Agente</label><input type="tel" placeholder="9XX XXX XXX" value={contactoAgente} onChange={(e) => setContactoAgente(e.target.value)} /><div className="hint">A lista de agentes não tem campo de telefone — indique o contacto no local.</div></div>
       <div className="field"><label>Nome do parceiro</label><input type="text" placeholder="Responsável no local" value={nomeParceiro} onChange={(e) => setNomeParceiro(e.target.value)} /></div>
       <div className="field"><label>Nº de pontos de venda</label><input type="number" placeholder="0" value={pontosVenda} onChange={(e) => setPontosVenda(e.target.value)} /></div>
       <div className="field"><label>Observações</label><textarea rows={3} placeholder="Notas sobre a visita..." value={observacoes} onChange={(e) => setObservacoes(e.target.value)} /></div>
-      <button type="submit" className="btn-primary" disabled={estadoGps !== "obtida"}>Guardar e Continuar para Checklist</button>
+      {erroGravacao && <div className="aviso-erro">{erroGravacao}</div>}
+      <button type="submit" className="btn-primary" disabled={estadoGps !== "obtida" || aGravar}>
+        {aGravar ? "A guardar…" : "Guardar e Continuar para Checklist"}
+      </button>
     </form>
   );
 }
@@ -436,6 +633,8 @@ const SERVICOS = [
 
 export function Checklist() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const idVisita = Number(searchParams.get("visita")) || 0;
   const [flybanner, setFlybanner] = useState<(typeof OPCOES_FLYBANNER)[number]>("Sim");
   const [merchandising, setMerchandising] = useState<(typeof OPCOES_MERCHANDISING)[number]>("Tem");
   const [placaPontoZap, setPlacaPontoZap] = useState<(typeof OPCOES_PLACA_PONTO_ZAP)[number]>("Tem");
@@ -448,10 +647,46 @@ export function Checklist() {
   const [servicos, setServicos] = useState<Record<string, boolean>>(Object.fromEntries(SERVICOS.map((s) => [s.key, s.inicial])));
   const [observacao, setObservacao] = useState("");
   const [proximaVisita, setProximaVisita] = useState("");
+  const [aGravar, setAGravar] = useState(false);
+  const [erroGravacao, setErroGravacao] = useState("");
 
-  function submeter(e: FormEvent) {
+  async function submeter(e: FormEvent) {
     e.preventDefault();
-    navigate("/");
+    if (!idVisita || aGravar) return;
+    setAGravar(true);
+    setErroGravacao("");
+    try {
+      await guardarChecklist(idVisita, {
+        flybanner,
+        merchandising,
+        placaPontoZap,
+        pendurantes,
+        boxeDemonstracao,
+        pinturaParede,
+        stockDeBoxes,
+        zapadinhasPontos,
+        usaZapAgentesMobile,
+        ussd: Boolean(servicos.ussd),
+        antigoMobile: Boolean(servicos.antigoMobile),
+        novoMobile: Boolean(servicos.novoMobile),
+        web: Boolean(servicos.web),
+        observacao,
+        proximaVisita,
+      });
+      navigate("/");
+    } catch {
+      setErroGravacao(MENSAGEM_ERRO_GRAVACAO);
+      setAGravar(false);
+    }
+  }
+
+  if (!idVisita) {
+    return (
+      <div className="card empty-state">
+        O checklist pertence a uma visita. Comece pelo ecrã Visitar para registar a localização e depois preencha o checklist.
+        <button type="button" className="btn-primary" style={{ marginTop: 14 }} onClick={() => navigate("/visitar")}>Ir para Visitar</button>
+      </div>
+    );
   }
 
   return (
@@ -474,48 +709,68 @@ export function Checklist() {
       </div>
       <div className="field" style={{ marginTop: 16 }}><label>Observação</label><textarea rows={3} placeholder="Detalhes adicionais do checklist..." value={observacao} onChange={(e) => setObservacao(e.target.value)} /></div>
       <div className="field"><label>Data da próxima visita</label><input type="date" min={hoje} value={proximaVisita} onChange={(e) => setProximaVisita(e.target.value)} /></div>
-      <button type="submit" className="btn-primary">Guardar Checklist</button>
+      {erroGravacao && <div className="aviso-erro">{erroGravacao}</div>}
+      <button type="submit" className="btn-primary" disabled={aGravar}>{aGravar ? "A guardar…" : "Guardar Checklist"}</button>
     </form>
   );
 }
 
+const faixaRappel = (valor: number) => valor.toLocaleString("pt-PT", { maximumFractionDigits: 2 });
+const montante2 = (valor: number) => valor.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export function Rappel() {
-  const [idAgente, setIdAgente] = useState(1000236);
-  const [tipoAgente, setTipoAgente] = useState<TipoAgente>("Agente Produto com rappel");
-  const [nomeAgente, setNomeAgente] = useState("Manuel Sozinho");
-  const [pvp, setPvp] = useState(1250000);
-  const [semIva, setSemIva] = useState(1059322);
-  const resultado = useMemo(() => calcularRappel(tipoAgente, semIva), [tipoAgente, semIva]);
+  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais();
+  const [idAgente, setIdAgente] = useState(0);
+  const [pvp, setPvp] = useState(0);
+
+  useEffect(() => {
+    if (idAgente === 0 && agentes.length > 0) {
+      const comRappel = agentes.find((a) => temRappel(a.tipoAgente)) ?? agentes[0];
+      setIdAgente(comRappel.codigoAgente);
+    }
+  }, [agentes, idAgente]);
+
+  const agente = agentes.find((a) => a.codigoAgente === idAgente);
+  const tipoAgente = agente?.tipoAgente ?? TIPOS_AGENTE[0];
+  const resultado = useMemo(() => calcularRappel(tipoAgente, pvp), [tipoAgente, pvp]);
+
+  if (carregando) return <Carregando mensagem="A carregar agentes…" />;
+  if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
 
   return (
     <div className="rappel-screen">
       <div className="section-title" style={{ marginTop: 2, color: "#fff" }}>Simulador de Rappel</div>
-      <div className="field"><label>Código do Agente</label><input type="number" value={idAgente} onChange={(e) => setIdAgente(Number(e.target.value) || 0)} /></div>
-      <div className="field"><label>Tipo de Agente</label><select value={tipoAgente} onChange={(e) => setTipoAgente(e.target.value as TipoAgente)}>{TIPOS_AGENTE.map((t) => <option key={t}>{t}</option>)}</select></div>
-      <div className="field"><label>Nome do Agente</label><input type="text" value={nomeAgente} onChange={(e) => setNomeAgente(e.target.value)} /></div>
-      <div className="field"><label>Montante PVP AOA</label><input type="number" value={pvp} onChange={(e) => setPvp(Number(e.target.value) || 0)} /></div>
-      <div className="field"><label>Montante sem IVA</label><input type="number" value={semIva} onChange={(e) => setSemIva(Number(e.target.value) || 0)} /></div>
+      <div className="field"><label>Código do Agente</label><input type="number" value={idAgente || ""} onChange={(e) => setIdAgente(Number(e.target.value) || 0)} /></div>
+      <div className="field"><label>Nome do Agente</label><input type="text" value={agente?.nome ?? ""} disabled placeholder={idAgente ? "Agente não encontrado" : "Indique o código"} /></div>
+      <div className="field"><label>Tipo de Agente</label><input type="text" value={agente?.tipoAgente ?? ""} disabled /></div>
+      <div className="field"><label>Montante PVP AOA</label><input type="number" value={pvp || ""} placeholder="0" onChange={(e) => setPvp(Number(e.target.value) || 0)} /><div className="hint">Define a faixa da escala de comissionamento.</div></div>
+      <div className="field"><label>Montante sem IVA</label><input type="text" value={pvp ? montante2(resultado.semIva) : ""} placeholder="0,00" disabled /><div className="hint">PVP ÷ 1,14 — é sobre este valor que a comissão incide.</div></div>
+      {!agente && idAgente > 0 && <div className="hint" style={{ color: "#ffd3d3", marginBottom: 12 }}>Não existe agente com o código {idAgente} na lista.</div>}
       {resultado.elegivel ? (
         <div className="rappel-result">
           <div className="rlabel">Comissão estimada</div>
-          <div className="rval">{formatarMoeda(resultado.comissao)}</div>
-          <div className="rscale">Escala aplicada: <span>{resultado.escalaAplicada ? `${resultado.escalaAplicada.percentagem}%` : "—"}</span></div>
+          <div className="rval">{resultado.escalaAplicada ? formatarMoeda(resultado.comissao) : "—"}</div>
+          <div className="rscale">
+            {resultado.escalaAplicada
+              ? <>Escala aplicada: <span>{resultado.escalaAplicada.percentagem}%</span></>
+              : `Sem rappel para PVP abaixo de ${formatarMoeda(RAPPEL_PVP_MINIMO)}`}
+          </div>
         </div>
       ) : (
         <div className="rappel-result">
           <div className="rlabel">Comissão estimada</div>
           <div className="rval">—</div>
-          <div className="rscale">Este tipo de agente não tem rappel.</div>
+          <div className="rscale">{agente ? "Este tipo de agente não tem rappel." : "Seleccione um agente para simular."}</div>
         </div>
       )}
-      <span className="example-tag"><Icon name="alert" /> Dados de exemplo — escalas reais configuráveis na lista SharePoint "EscalasRappel"</span>
+      <span className="example-tag"><Icon name="alert" /> A faixa é determinada pelo PVP; a comissão incide sobre o montante sem IVA</span>
       {resultado.elegivel && (
         <table className="scale-table">
-          <thead><tr><th>Faixa de Volume (AOA)</th><th>Percentagem</th></tr></thead>
+          <thead><tr><th>Faixa de PVP (AOA)</th><th>Comissão</th></tr></thead>
           <tbody>
             {resultado.escalas.map((e) => (
               <tr key={`${e.volumeMinimo}-${e.volumeMaximo}`} className={resultado.escalaAplicada === e ? "hl" : ""}>
-                <td>{e.volumeMaximo === Infinity ? `Acima de ${e.volumeMinimo.toLocaleString("pt-PT")}` : e.volumeMinimo === 0 ? `Até ${e.volumeMaximo.toLocaleString("pt-PT")}` : `${e.volumeMinimo.toLocaleString("pt-PT")} — ${e.volumeMaximo.toLocaleString("pt-PT")}`}</td>
+                <td>{e.volumeMaximo === Infinity ? `Acima de ${faixaRappel(e.volumeMinimo)}` : `${faixaRappel(e.volumeMinimo)} — ${faixaRappel(e.volumeMaximo)}`}</td>
                 <td>{e.percentagem}%</td>
               </tr>
             ))}
@@ -527,44 +782,10 @@ export function Rappel() {
 }
 
 export function Mais() {
-  const [tab, setTab] = useState<"comm" | "pag">("comm");
   return (
     <>
-      <div className="tabs-scroll">
-        <button className={`tab-btn${tab === "comm" ? " active" : ""}`} onClick={() => setTab("comm")}>Comunicações</button>
-        <button className={`tab-btn${tab === "pag" ? " active" : ""}`} onClick={() => setTab("pag")}>Pagamentos</button>
-      </div>
-      {tab === "comm" ? (
-        <>
-          <div className="comm-card">
-            <div className="comm-img"><Icon name="megaphone" />CAMPANHA</div>
-            <div className="comm-body"><div className="comm-cat">Rede de Agentes</div><div className="comm-title">Nova escala de rappel entra em vigor em Outubro</div><div className="comm-date">09 Set 2026</div></div>
-          </div>
-          <div className="comm-card">
-            <div className="comm-img" style={{ background: "linear-gradient(135deg,var(--cor-amarelo-escuro),var(--cor-azul))" }}><Icon name="book" />FORMAÇÃO</div>
-            <div className="comm-body"><div className="comm-cat">Capacitação</div><div className="comm-title">Como preencher correctamente o checklist de visita</div><div className="comm-date">02 Set 2026</div></div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="filter-chips" style={{ marginBottom: 16 }}>
-            <div className="chip active">Todos os períodos</div>
-            <div className="chip">Estado <Icon name="chevron" /></div>
-          </div>
-          <div className="pay-item">
-            <div className="pay-ico kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="wallet" /></div>
-            <div className="pinfo"><div className="pperiod">Agosto 2026</div><div className="pdate">Pago em 05/09/2026</div></div>
-            <div className="pval">63 559 Kz</div>
-            <span className="badge badge-verde">Pago</span>
-          </div>
-          <div className="pay-item">
-            <div className="pay-ico kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="wallet" /></div>
-            <div className="pinfo"><div className="pperiod">Setembro 2026</div><div className="pdate">Em processamento</div></div>
-            <div className="pval">—</div>
-            <span className="badge badge-amarelo">Pendente</span>
-          </div>
-        </>
-      )}
+      <div className="section-title" style={{ marginTop: 2 }}>Comunicações</div>
+      <div className="card empty-state">Ainda não há comunicações ligadas ao SharePoint.</div>
     </>
   );
 }

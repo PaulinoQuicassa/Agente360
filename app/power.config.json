@@ -14,13 +14,17 @@
       "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
       "displayName": "SharePoint",
       "dataSources": [
-        "bd_agentes_palhativa"
+        "bd_agentes_palhativa",
+        "controlodevisitasagentes"
       ],
       "dataSets": {
         "https://zapcoao.sharepoint.com/sites/AgentesAO": {
           "dataSources": {
             "bd_agentes_palhativa": {
               "tableName": "BD_Agentes_Palhativa"
+            },
+            "controlodevisitasagentes": {
+              "tableName": "Controlo de visitas Agentes"
             }
           }
         }

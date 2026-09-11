@@ -49,4 +49,8 @@
 .cta-captar{ color:#1a1a1a; }
 .cta-visitar{ color:#fff; }
 .agent-item{ text-decoration:none; color:inherit; }
+a.activity-item{ text-decoration:none; color:inherit; }
+.prov-list{ max-height:360px; overflow-y:auto; }
+.bar-row .prov{ width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-row .val{ width:auto; min-width:36px; }
 .kpi-scroll::-webkit-scrollbar,.filter-chips::-webkit-scrollbar,.tabs-scroll::-webkit-scrollbar{display:none;}

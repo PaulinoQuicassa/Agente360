@@ -1,18 +1,18 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { useUtilizadorAtual } from "./auth";
-import { iniciais } from "./sharepoint";
+import { formatarNumero, iniciais, useAgentesReais } from "./sharepoint";
 
 const headers: Record<string, { title: string; sub: string }> = {
   "/": { title: "Rede de Agentes", sub: "Rede de Agentes · Visão geral" },
   "/captar": { title: "Captar Agente", sub: "Novo registo na rede" },
   "/confirm": { title: "Confirmação", sub: "Captação concluída" },
-  "/agentes": { title: "Agentes", sub: "1 284 agentes na rede" },
+  "/agentes": { title: "Agentes", sub: "Agentes na rede" },
   "/perfil": { title: "Visão 360º", sub: "Perfil completo do agente" },
   "/visitar": { title: "Visitar", sub: "Registar visita ao agente" },
   "/checklist": { title: "Checklist de Visita", sub: "Materiais e serviços" },
   "/rappel": { title: "Simulador de Rappel", sub: "Cálculo de comissão" },
-  "/mais": { title: "Mais", sub: "Comunicações e pagamentos" },
+  "/mais": { title: "Mais", sub: "Comunicações da rede" },
 };
 
 const nav: { to: string; label: string; icon: IconName; fab?: boolean }[] = [
@@ -36,7 +36,14 @@ export function Layout() {
   const { pathname } = useLocation();
   const header = headers[pathname] ?? headers["/"];
   const utilizador = useUtilizadorAtual();
+  const { agentes, carregando } = useAgentesReais();
   const titulo = pathname === "/" ? `Olá, ${utilizador?.nome ?? "Agente"}` : header.title;
+  const sub =
+    pathname === "/" || pathname === "/agentes"
+      ? carregando && agentes.length === 0
+        ? "A carregar a rede de agentes…"
+        : `${formatarNumero(agentes.length)} agentes na rede${carregando ? "…" : ""}`
+      : header.sub;
 
   return (
     <div className="nav-shell">
@@ -52,7 +59,7 @@ export function Layout() {
           </div>
         </div>
         <h1 className="app-header__title">{titulo}</h1>
-        <p className="app-header__sub">{header.sub}</p>
+        <p className="app-header__sub">{sub}</p>
       </header>
 
       <aside className="nav-shell__sidebar">
