@@ -322,6 +322,47 @@ export function Confirm() {
   );
 }
 
+interface EstadoVisitaConcluida {
+  idVisita: number;
+  codigoAgente: number;
+  nomeAgente: string;
+  tipoVisita: string;
+  proximaVisita: string;
+}
+
+export function VisitaConcluida() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dados = location.state as EstadoVisitaConcluida | null;
+
+  if (!dados) {
+    return (
+      <div className="confirm-wrap">
+        <p>Nenhuma visita recente para confirmar.</p>
+        <button className="btn-primary" onClick={() => navigate("/visitar")}>Ir para Visitar</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="confirm-wrap">
+      <div className="check-circle"><Icon name="check" /></div>
+      <h2>Visita guardada com sucesso</h2>
+      <p>A visita e o checklist ficaram registados na lista de controlo de visitas.</p>
+      <div className="card confirm-card">
+        <div className="info-row"><span className="k">Registo</span><span className="v">#{dados.idVisita}</span></div>
+        {dados.nomeAgente && <div className="info-row"><span className="k">Agente</span><span className="v">{dados.nomeAgente}</span></div>}
+        <div className="info-row"><span className="k">Código do agente</span><span className="v">{dados.codigoAgente}</span></div>
+        {dados.tipoVisita && <div className="info-row"><span className="k">Tipo de visita</span><span className="v">{dados.tipoVisita}</span></div>}
+        <div className="info-row"><span className="k">Data</span><span className="v">{formatarData(new Date().toISOString())}</span></div>
+        {dados.proximaVisita && <div className="info-row"><span className="k">Próxima visita</span><span className="v">{formatarData(dados.proximaVisita)}</span></div>}
+      </div>
+      <button className="btn-primary" onClick={() => navigate(`/perfil?agente=${dados.codigoAgente}`)}>Ver Visão 360º do agente</button>
+      <button className="btn-secondary" onClick={() => navigate("/visitar")}>Registar outra visita</button>
+    </div>
+  );
+}
+
 type FiltroEstado = "Todos" | "Com investimentos" | "Sem investimentos";
 const FILTROS: FiltroEstado[] = ["Todos", "Com investimentos", "Sem investimentos"];
 
@@ -566,7 +607,9 @@ function VisitarForm({ agente }: { agente: Agente }) {
         latitude: localizacao.latitude,
         longitude: localizacao.longitude,
       });
-      navigate(`/checklist?agente=${codigoAgente}&visita=${idVisita}`);
+      navigate(`/checklist?agente=${codigoAgente}&visita=${idVisita}`, {
+        state: { nomeAgente: agente.nome, tipoVisita },
+      });
     } catch {
       setErroGravacao(MENSAGEM_ERRO_GRAVACAO);
       setAGravar(false);
@@ -634,7 +677,10 @@ const SERVICOS = [
 export function Checklist() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const contexto = location.state as { nomeAgente?: string; tipoVisita?: string } | null;
   const idVisita = Number(searchParams.get("visita")) || 0;
+  const codigoAgente = Number(searchParams.get("agente")) || 0;
   const [flybanner, setFlybanner] = useState<(typeof OPCOES_FLYBANNER)[number]>("Sim");
   const [merchandising, setMerchandising] = useState<(typeof OPCOES_MERCHANDISING)[number]>("Tem");
   const [placaPontoZap, setPlacaPontoZap] = useState<(typeof OPCOES_PLACA_PONTO_ZAP)[number]>("Tem");
@@ -673,7 +719,15 @@ export function Checklist() {
         observacao,
         proximaVisita,
       });
-      navigate("/");
+      navigate("/visita-concluida", {
+        state: {
+          idVisita,
+          codigoAgente,
+          nomeAgente: contexto?.nomeAgente ?? "",
+          tipoVisita: contexto?.tipoVisita ?? "",
+          proximaVisita,
+        },
+      });
     } catch {
       setErroGravacao(MENSAGEM_ERRO_GRAVACAO);
       setAGravar(false);
@@ -691,7 +745,11 @@ export function Checklist() {
 
   return (
     <form onSubmit={submeter}>
-      <div className="section-title" style={{ marginTop: 2 }}>Materiais de Marketing</div>
+      <div className="aviso-sucesso">
+        <Icon name="check" />
+        <span>Visita registada com a localização. Preencha o checklist para a concluir.</span>
+      </div>
+      <div className="section-title">Materiais de Marketing</div>
       <div className="field"><label>Flybanner</label><select value={flybanner} onChange={(e) => setFlybanner(e.target.value as typeof flybanner)}>{OPCOES_FLYBANNER.map((o) => <option key={o}>{o}</option>)}</select></div>
       <div className="field"><label>Merchandising</label><select value={merchandising} onChange={(e) => setMerchandising(e.target.value as typeof merchandising)}>{OPCOES_MERCHANDISING.map((o) => <option key={o}>{o}</option>)}</select></div>
       <div className="field"><label>Placa Ponto ZAP</label><select value={placaPontoZap} onChange={(e) => setPlacaPontoZap(e.target.value as typeof placaPontoZap)}>{OPCOES_PLACA_PONTO_ZAP.map((o) => <option key={o}>{o}</option>)}</select></div>

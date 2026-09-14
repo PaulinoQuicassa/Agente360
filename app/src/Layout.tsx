@@ -11,6 +11,7 @@ const headers: Record<string, { title: string; sub: string }> = {
   "/perfil": { title: "Visão 360º", sub: "Perfil completo do agente" },
   "/visitar": { title: "Visitar", sub: "Registar visita ao agente" },
   "/checklist": { title: "Checklist de Visita", sub: "Materiais e serviços" },
+  "/visita-concluida": { title: "Confirmação", sub: "Visita concluída" },
   "/rappel": { title: "Simulador de Rappel", sub: "Cálculo de comissão" },
   "/mais": { title: "Mais", sub: "Comunicações da rede" },
 };
@@ -26,7 +27,7 @@ const nav: { to: string; label: string; icon: IconName; fab?: boolean }[] = [
 function linkActive(path: string, pathname: string) {
   if (path === "/") return pathname === "/";
   if (path === "/agentes") return pathname === "/agentes" || pathname === "/perfil";
-  if (path === "/visitar") return pathname === "/visitar" || pathname === "/checklist";
+  if (path === "/visitar") return pathname === "/visitar" || pathname === "/checklist" || pathname === "/visita-concluida";
   if (path === "/mais") return pathname === "/mais" || pathname === "/rappel";
   if (path === "/captar") return pathname === "/captar" || pathname === "/confirm";
   return pathname === path;
