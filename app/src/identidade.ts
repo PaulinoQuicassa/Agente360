@@ -43,12 +43,83 @@ export function nomeAPartirDoEmail(email: string): string {
     .join(" ");
 }
 
+/** Valores de field_5 pesquisados com igualdade exacta a partir do nome e e-mail Entra ID. */
+export function valoresExactosConsultor(utilizador: UtilizadorIdentidade): string[] {
+  const valores = new Set<string>();
+  const nome = utilizador.nome.trim();
+  const email = utilizador.email.trim();
+  if (nome) {
+    valores.add(nome);
+    const partes = nome.split(/\s+/).filter(Boolean);
+    if (partes.length >= 2) {
+      const primeiro = partes[0];
+      const ultimo = partes[partes.length - 1];
+      valores.add(`${ultimo}, ${primeiro}`);
+      valores.add(`${primeiro} ${ultimo}`);
+    }
+  }
+  if (email) {
+    valores.add(email);
+    const local = email.split("@")[0]?.trim();
+    if (local) {
+      valores.add(local);
+      const doEmail = nomeAPartirDoEmail(email);
+      if (doEmail) valores.add(doEmail);
+    }
+  }
+  return [...valores].filter(Boolean);
+}
+
 /** Mesma regra usada no filtro do servidor e na validação no cliente. */
 export function mesmaPessoaQue(valor: string | undefined, utilizador: UtilizadorIdentidade): boolean {
   if (!valor?.trim()) return false;
   if (mesmaPessoa(valor, utilizador.nome) || mesmaPessoa(valor, utilizador.email)) return true;
   const doEmail = utilizador.email ? nomeAPartirDoEmail(utilizador.email) : "";
   return Boolean(doEmail) && mesmaPessoa(valor, doEmail);
+}
+
+/** Consulta ao field_5: começa por um dos prefixos e não é nenhum dos valores excluídos. */
+export interface ConsultaGrafias {
+  prefixos: string[];
+  excluir: string[];
+  top: number;
+}
+
+/**
+ * Descobre no SharePoint todas as grafias de field_5 que correspondem ao
+ * utilizador mas que o filtro exacto não apanha (ex.: com acentos). Corre
+ * sempre, mesmo que já existam linhas com a grafia exacta — uma lista pode
+ * ter as duas grafias para o mesmo consultor. Cada valor visto (do
+ * utilizador ou de outro consultor) é excluído na consulta seguinte, para
+ * não percorrer as carteiras inteiras.
+ */
+export async function descobrirGrafiasConsultor(
+  utilizador: UtilizadorIdentidade,
+  valoresExactos: string[],
+  consultar: (consulta: ConsultaGrafias) => Promise<(string | undefined | null)[]>,
+  opcoes: { top?: number; maxConsultas?: number } = {},
+): Promise<string[]> {
+  const top = opcoes.top ?? 100;
+  const maxConsultas = opcoes.maxConsultas ?? 8;
+  const prefixos = prefixosPesquisaConsultor(utilizador);
+  if (!prefixos.length) return [];
+
+  const excluir = new Set(valoresExactos.filter(Boolean));
+  const encontrados = new Set<string>();
+  for (let i = 0; i < maxConsultas; i += 1) {
+    const valores = await consultar({ prefixos, excluir: [...excluir], top });
+    let novos = 0;
+    for (const valor of valores) {
+      if (!valor) continue;
+      if (!excluir.has(valor)) {
+        excluir.add(valor);
+        novos += 1;
+      }
+      if (mesmaPessoaQue(valor, utilizador)) encontrados.add(valor);
+    }
+    if (valores.length < top || novos === 0) break;
+  }
+  return [...encontrados];
 }
 
 const VARIANTES_LETRA: Record<string, string[]> = {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BD_Agentes_PalhativaService, type BD_Agentes_PalhativaModel } from "./generated";
 import { municipiosOficiaisAngola } from "./dados/municipiosAngola";
 import { resolverProvinciaCatalogo } from "./dados/provinciasAngola";
-import { mesmaPessoa, mesmaPessoaQue, nomeAPartirDoEmail, prefixosPesquisaConsultor } from "./identidade";
+import { descobrirGrafiasConsultor, mesmaPessoa, mesmaPessoaQue, valoresExactosConsultor } from "./identidade";
 import { ERRO_FORA_DO_HOST, dentroDoPowerApps } from "./powerHost";
 
 /**
@@ -207,32 +207,11 @@ function escaparOData(texto: string): string {
 
 export type UtilizadorConsultor = { nome: string; email: string };
 
-/** Valores plausíveis do campo Consultor (field_5) para o utilizador M365 logado. */
+/** Valores do campo Consultor (field_5) aceites no filtro, incluindo grafias descobertas. */
 function valoresConsultorField5(utilizador: UtilizadorConsultor): string[] {
-  const valores = new Set<string>();
-  const nome = utilizador.nome.trim();
-  const email = utilizador.email.trim();
-  if (nome) {
-    valores.add(nome);
-    const partes = nome.split(/\s+/).filter(Boolean);
-    if (partes.length >= 2) {
-      const primeiro = partes[0];
-      const ultimo = partes[partes.length - 1];
-      valores.add(`${ultimo}, ${primeiro}`);
-      valores.add(`${primeiro} ${ultimo}`);
-    }
-  }
-  if (email) {
-    valores.add(email);
-    const local = email.split("@")[0]?.trim();
-    if (local) {
-      valores.add(local);
-      const aPartirDoEmail = nomeAPartirDoEmail(email);
-      if (aPartirDoEmail) valores.add(aPartirDoEmail);
-    }
-  }
+  const valores = new Set(valoresExactosConsultor(utilizador));
   grafiasConsultorDescobertas.get(chaveUtilizador(utilizador))?.forEach((v) => valores.add(v));
-  return [...valores].filter(Boolean);
+  return [...valores];
 }
 
 function chaveUtilizador(utilizador: UtilizadorConsultor): string {
@@ -254,40 +233,25 @@ export function filtroConsultorField5(utilizador: UtilizadorConsultor): string |
 /**
  * O SharePoint compara texto sem distinguir maiúsculas mas distingue acentos:
  * "sebastiao pongo" (Entra ID) não encontra "Sebastião Pongo" (field_5).
- * Quando o filtro exacto não devolve nada, procura por prefixos das palavras
- * do nome e só aceita valores de field_5 que coincidam por inteiro
- * (mesmaPessoaQue). Esses valores passam a integrar o filtro exacto.
+ * As grafias descobertas (validadas por mesmaPessoaQue) passam a integrar o
+ * filtro exacto da carteira, da pesquisa por código e das sugestões.
  */
 async function descobrirGrafiaConsultor(utilizador: UtilizadorConsultor): Promise<void> {
-  const filtroExacto = filtroConsultorField5(utilizador);
-  if (!filtroExacto) return;
-  const exacto = await comTimeout(
-    BD_Agentes_PalhativaService.getAll({ top: 1, filter: filtroExacto, select: ["ID", "field_5"] }),
-    TIMEOUT_PAGINA_MS,
+  const encontrados = await descobrirGrafiasConsultor(
+    utilizador,
+    valoresExactosConsultor(utilizador),
+    async ({ prefixos, excluir, top }) => {
+      const comeca = `(${prefixos.map((p) => `startswith(field_5,'${escaparOData(p)}')`).join(" or ")})`;
+      const exclusao = excluir.map((v) => ` and field_5 ne '${escaparOData(v)}'`).join("");
+      const resultado = await comTimeout(
+        BD_Agentes_PalhativaService.getAll({ top, filter: `${comeca}${exclusao}`, select: ["ID", "field_5"] }),
+        TIMEOUT_PAGINA_MS,
+      );
+      if (!resultado.success) throw resultado.error ?? new Error("Falha ao identificar o consultor");
+      return resultado.data.map((r) => r.field_5);
+    },
   );
-  if (!exacto.success) throw exacto.error ?? new Error("Falha ao identificar o consultor");
-  if (exacto.data.length) return;
-
-  const prefixos = prefixosPesquisaConsultor(utilizador);
-  if (!prefixos.length) return;
-  const filtroPrefixos = `(${prefixos.map((p) => `startswith(field_5,'${escaparOData(p)}')`).join(" or ")})`;
-  const encontrados = new Set<string>();
-  let ultimoId = 0;
-  for (let pag = 0; pag < 10; pag += 1) {
-    const filter = ultimoId > 0 ? `${filtroPrefixos} and ID gt ${ultimoId}` : filtroPrefixos;
-    const resultado = await comTimeout(
-      BD_Agentes_PalhativaService.getAll({ top: TAMANHO_PAGINA, orderBy: ["ID asc"], filter, select: ["ID", "field_5"] }),
-      TIMEOUT_PAGINA_MS,
-    );
-    if (!resultado.success) throw resultado.error ?? new Error("Falha ao identificar o consultor");
-    for (const raw of resultado.data) {
-      const valor = raw.field_5?.trim();
-      if (valor && mesmaPessoaQue(valor, utilizador)) encontrados.add(valor);
-    }
-    if (encontrados.size || resultado.data.length < TAMANHO_PAGINA) break;
-    ultimoId = resultado.data.reduce((max, r) => Math.max(max, r.ID ?? 0), ultimoId);
-  }
-  if (encontrados.size) grafiasConsultorDescobertas.set(chaveUtilizador(utilizador), encontrados);
+  if (encontrados.length) grafiasConsultorDescobertas.set(chaveUtilizador(utilizador), new Set(encontrados));
 }
 
 /** Filtro do consultor depois de resolvida a grafia real em field_5. */
