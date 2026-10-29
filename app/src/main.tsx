@@ -4,6 +4,9 @@ import "./index.css";
 import "./icons.css";
 import App from "./App.tsx";
 import { UtilizadorProvider } from "./auth";
+import { iniciarLigacaoHost } from "./authContext";
+
+iniciarLigacaoHost();
 
 const root = createRoot(document.getElementById("root")!);
 if (import.meta.env.DEV) {

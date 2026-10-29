@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getContext, type IContext } from "@microsoft/power-apps/app";
-import { dentroDoPowerApps } from "./powerHost";
+import { dentroDoPowerApps, marcarHostPowerApps } from "./powerHost";
 
 export interface UtilizadorSessao {
   nome: string;
@@ -63,18 +63,30 @@ function gravarCacheSessao(sessao: UtilizadorSessao) {
 /** Uma única promessa partilhada — evita corrida do getContext() no arranque (telemóvel). */
 let promessaIdentificacao: Promise<UtilizadorSessao | null> | null = null;
 
-async function identificarUtilizadorHost(): Promise<UtilizadorSessao | null> {
-  if (!dentroDoPowerApps()) return null;
+/**
+ * Abre o canal com o player o mais cedo possível. O player Power Apps só tira
+ * o ecrã "A abrir…" depois deste aperto de mão, por isso não pode depender
+ * de detectar o host pelo URL.
+ */
+export function iniciarLigacaoHost(): void {
+  getContext()
+    .then(() => marcarHostPowerApps())
+    .catch(() => undefined);
+}
 
-  const atrasosMs = [0, 300, 800, 1600, 3200];
+async function identificarUtilizadorHost(): Promise<UtilizadorSessao | null> {
+  const noHost = dentroDoPowerApps();
+  const atrasosMs = noHost ? [0, 300, 800, 1600, 3200] : [0];
+  const esperaMs = noHost ? 20000 : 6000;
   for (const atraso of atrasosMs) {
     if (atraso > 0) await sleep(atraso);
     try {
       const ctx = await Promise.race([
         getContext(),
-        sleep(20000).then(() => null as IContext | null),
+        sleep(esperaMs).then(() => null as IContext | null),
       ]);
       if (!ctx) continue;
+      marcarHostPowerApps();
       const sessao = sessaoDeContexto(ctx);
       if (sessao) {
         gravarCacheSessao(sessao);
@@ -111,14 +123,6 @@ export function UtilizadorProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelado = false;
     const tinhaSessaoLocal = Boolean(lerCacheSessao());
-
-    if (!dentroDoPowerApps()) {
-      setFase("error");
-      setUtilizador(null);
-      return () => {
-        cancelado = true;
-      };
-    }
 
     if (!tinhaSessaoLocal) setFase("loading");
 

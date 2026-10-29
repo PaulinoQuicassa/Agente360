@@ -3,16 +3,27 @@ export const ERRO_FORA_DO_HOST =
 
 const AMBIENTE_FALLBACK = "85de9078-2a11-e636-a7d4-4cfe77ad3656";
 
-/** Verdadeiro quando a app corre embebida no player Power Apps (ou host conhecido). */
+let hostConfirmado = false;
+
+/** Chamado quando o player responde ao getContext() — prova definitiva de que estamos no host. */
+export function marcarHostPowerApps(): void {
+  hostConfirmado = true;
+}
+
+/**
+ * Verdadeiro quando a app corre embebida no player Power Apps. A app nativa
+ * (Android/iOS) serve a Code App em *.powerplatformusercontent.com sem
+ * referrer de apps.powerapps.com, por isso o URL não basta: estar numa
+ * iframe ou ter o bridge injectado também conta.
+ */
 export function dentroDoPowerApps(): boolean {
   if (typeof window === "undefined") return false;
+  if (hostConfirmado) return true;
   if ((globalThis as { powerAppsBridge?: unknown }).powerAppsBridge) return true;
-  const href = window.location.href;
-  const ref = document.referrer ?? "";
-  const junto = `${href}\n${ref}`.toLowerCase();
-  return (
-    /powerapps\.com|powerplatform\.com|powerapps\.microsoft\.com|\.powerapps\.ms|sharepoint\.com/.test(junto) ||
-    (window.self !== window.top && /microsoft|office\.com|sharepoint/.test(junto))
+  if (window.self !== window.top) return true;
+  const junto = `${window.location.href}\n${document.referrer ?? ""}`.toLowerCase();
+  return /powerapps\.com|powerplatform\.com|powerplatformusercontent\.com|powerapps\.microsoft\.com|\.powerapps\.ms|sharepoint\.com/.test(
+    junto,
   );
 }
 
