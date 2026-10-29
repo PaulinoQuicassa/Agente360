@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { CaptarWizard, type DadosCaptarCompleto } from "./CaptarWizard";
+import { EscolherAgentePorCodigo } from "./EscolherAgentePorCodigo";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useEstadoAuth, useUtilizadorAtual } from "./auth";
+import { irParaListaDeApps } from "./powerHost";
+import { BotaoVoltarConteudo } from "./BotaoVoltar";
 import { Icon } from "./Icon";
 import {
   OPCOES_FLYBANNER,
@@ -15,23 +20,20 @@ import {
   actividadeRecente,
   badgeClassAgente,
   calcularRappel,
+  contactoPrincipalAgente,
   contarPorProvincia,
-  criarAgente,
+  buscarAgentePorCodigo,
   formatarData,
   formatarMoeda,
   formatarNumero,
   indicadoresDashboard,
   iniciais,
-  municipiosDaProvincia,
-  provincasDosAgentes,
-  proximoCodigoAgente,
+  invalidarCacheAgentes,
   RAPPEL_PVP_MINIMO,
-  temRappel,
   tipoAgenteVisitaPadrao,
   useAgentesReais,
   type Agente,
   type EstadoAgente,
-  type TipoAgente,
   type TipoAgenteVisita,
   type TipoVisita,
 } from "./sharepoint";
@@ -39,31 +41,12 @@ import {
   MENSAGEM_ERRO_GRAVACAO,
   criarVisita,
   guardarChecklist,
+  agentesPorVisitar,
   useResumoVisitas,
   useVisitasDoAgente,
   type Visita,
 } from "./visitas";
-
-const PROVINCIAS_ANGOLA = [
-  "Bengo",
-  "Benguela",
-  "Bié",
-  "Cabinda",
-  "Cuando Cubango",
-  "Cuanza Norte",
-  "Cuanza Sul",
-  "Cunene",
-  "Huambo",
-  "Huíla",
-  "Luanda",
-  "Lunda Norte",
-  "Lunda Sul",
-  "Malanje",
-  "Moxico",
-  "Namibe",
-  "Uíge",
-  "Zaire",
-];
+import { obterGeolocalizacaoVisita } from "./geolocalizacao";
 
 const CORES_BARRA = ["var(--cor-azul)", "var(--cor-magenta)", "var(--cor-amarelo-escuro)"];
 
@@ -78,17 +61,30 @@ function Carregando({ mensagem = "A carregar…" }: { mensagem?: string }) {
 }
 
 function IndicadoresVisitas() {
-  const { resumo, carregando, erro } = useResumoVisitas();
-  if (erro) return null;
+  const { fase: faseAuth, utilizador } = useEstadoAuth();
+  const authPronto = faseAuth === "ready";
+  const { agentes } = useAgentesReais(utilizador, { activo: authPronto });
+  const { resumo, carregando, erro } = useResumoVisitas(utilizador, { activo: authPronto, adiarMs: 1500 });
+  const porVisitar =
+    resumo && agentes.length > 0 ? agentesPorVisitar(agentes.length, resumo.agentesVisitadosEsteMes) : undefined;
+  if (erro) {
+    return (
+      <div className="hint" style={{ marginBottom: 12 }}>
+        Não foi possível carregar visitas da lista Controlo de visitas Agentes.
+      </div>
+    );
+  }
 
   const valor = (n?: number) => (carregando || n === undefined ? "…" : formatarNumero(n));
   return (
     <>
-      <div className="section-title">Visitas<span className="link">{carregando ? "A carregar…" : "Últimos 2 meses"}</span></div>
+      <div className="section-title">Visitas<span className="link">{carregando ? "A carregar…" : "As suas visitas · 2 meses"}</span></div>
       <div className="kpi-scroll">
         <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.hoje)}</div><div className="label">Visitas hoje</div></div>
         <div className="kpi-card"><div className="kpi-icon kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="clipboard" /></div><div className="num">{valor(resumo?.esteMes)}</div><div className="label">Visitas este mês</div>{resumo && <Delta valor={resumo.esteMes - resumo.mesAnterior} sufixo="vs. período igual" />}</div>
-        <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.proximos7Dias)}</div><div className="label">Agendadas 7 dias</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.agendadosHoje)}</div><div className="label">Agendadas hoje</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="people" /></div><div className="num">{valor(porVisitar)}</div><div className="label">Por visitar (mês)</div></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="pin" /></div><div className="num">{valor(resumo?.proximos7Dias)}</div><div className="label">Agendadas 7 dias</div></div>
       </div>
     </>
   );
@@ -107,26 +103,55 @@ function ErroCarregamento({ tentarNovamente }: { tentarNovamente: () => void }) 
   );
 }
 
+function ErroIdentificacaoConsultor({ tentar }: { tentar: () => void }) {
+  return (
+    <div className="empty-state">
+      Não foi possível identificar o consultor no Power Apps. Feche a app, abra de novo ou use o botão abaixo.
+      <div style={{ marginTop: 12 }}>
+        <button type="button" className="btn-secondary" style={{ width: "auto", marginTop: 0, padding: "8px 16px" }} onClick={tentar}>
+          Tentar identificar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard() {
-  const { agentes, carregando, progresso, erro, tentarNovamente } = useAgentesReais();
+  const { fase: faseAuth, utilizador, tentarIdentificar } = useEstadoAuth();
+  const authPronto = faseAuth === "ready";
+  const { agentes, carregando, progresso, erro, tentarNovamente } = useAgentesReais(utilizador, { activo: authPronto });
   const indicadores = useMemo(() => indicadoresDashboard(agentes), [agentes]);
   const provincias = useMemo(() => contarPorProvincia(agentes), [agentes]);
-  const actividades = useMemo(() => actividadeRecente(agentes), [agentes]);
+  const actividades = useMemo(() => actividadeRecente(agentes, utilizador), [agentes, utilizador]);
   const maxProvincia = provincias[0]?.total ?? 0;
 
+  if (faseAuth === "loading" && !utilizador) {
+    return <Carregando mensagem="A identificar o consultor no Power Apps…" />;
+  }
+  if (faseAuth === "error" && !utilizador) {
+    return <ErroIdentificacaoConsultor tentar={tentarIdentificar} />;
+  }
   if (erro && agentes.length === 0) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
   if (carregando && agentes.length === 0) {
-    return <Carregando mensagem={progresso > 0 ? `A carregar agentes… (${formatarNumero(progresso)})` : "A carregar agentes…"} />;
+    return (
+      <Carregando
+        mensagem={
+          progresso > 0
+            ? `A carregar a sua carteira… (${formatarNumero(progresso)})`
+            : "A carregar a sua carteira…"
+        }
+      />
+    );
   }
 
   return (
     <>
       <div className="section-title">
-        Indicadores
-        <span className="link">{carregando ? `A carregar… (${formatarNumero(agentes.length)})` : "Este mês"}</span>
+        Indicadores da carteira
+        <span className="link">{carregando ? `${formatarNumero(agentes.length)} agentes` : `${formatarNumero(agentes.length)} na carteira`}</span>
       </div>
       <div className="kpi-scroll">
-        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="people" /></div><div className="num">{formatarNumero(indicadores.total)}</div><div className="label">Total de Agentes</div><Delta valor={indicadores.novosEsteMes} sufixo="este mês" /></div>
+        <div className="kpi-card"><div className="kpi-icon kpi-azul" style={{ background: "#E5F3FB" }}><Icon name="people" /></div><div className="num">{formatarNumero(indicadores.total)}</div><div className="label">Agentes na carteira</div><Delta valor={indicadores.novosEsteMes} sufixo="este mês" /></div>
         <div className="kpi-card"><div className="kpi-icon kpi-verde" style={{ background: "#E6F4E6" }}><Icon name="user-check" /></div><div className="num">{formatarNumero(indicadores.comInvestimentos)}</div><div className="label">Com investimentos</div></div>
         <div className="kpi-card"><div className="kpi-icon kpi-amarelo" style={{ background: "#FFF7D6" }}><Icon name="user-plus" /></div><div className="num">{formatarNumero(indicadores.novosEsteMes)}</div><div className="label">Novos este mês</div><Delta valor={indicadores.deltaNovos} /></div>
         <div className="kpi-card"><div className="kpi-icon kpi-magenta" style={{ background: "#FBE4EF" }}><Icon name="clipboard" /></div><div className="num">{formatarNumero(indicadores.semInvestimentos)}</div><div className="label">Sem investimentos</div></div>
@@ -174,121 +199,15 @@ export function Dashboard() {
   );
 }
 
-interface DadosCaptar {
-  nome: string;
-  provincia: string;
-  municipio: string;
-  email: string;
-  tipoAgente: TipoAgente;
-}
-
 export function Captar() {
-  const navigate = useNavigate();
-  const { agentes, carregando } = useAgentesReais();
-  const [form, setForm] = useState<DadosCaptar>({
-    nome: "",
-    provincia: "",
-    municipio: "",
-    email: "",
-    tipoAgente: TIPOS_AGENTE[0],
-  });
-  const [erros, setErros] = useState<Partial<Record<keyof DadosCaptar, string>>>({});
-  const [aGravar, setAGravar] = useState(false);
-  const [erroGravacao, setErroGravacao] = useState("");
-
-  const provincias = useMemo(() => {
-    const conjunto = new Set([...PROVINCIAS_ANGOLA, ...provincasDosAgentes(agentes)]);
-    return [...conjunto].sort((a, b) => a.localeCompare(b, "pt"));
-  }, [agentes]);
-  const munList = municipiosDaProvincia(agentes, form.provincia);
-
-  function actualizar<K extends keyof DadosCaptar>(campo: K, valor: DadosCaptar[K]) {
-    setForm((f) => ({ ...f, [campo]: valor, ...(campo === "provincia" ? { municipio: "" } : {}) }));
-  }
-
-  async function submeter(e: FormEvent) {
-    e.preventDefault();
-    const novosErros: typeof erros = {};
-    if (!form.nome.trim()) novosErros.nome = "Indique o nome do agente.";
-    if (!form.provincia) novosErros.provincia = "Seleccione a província.";
-    if (!form.municipio.trim()) novosErros.municipio = "Indique o município.";
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) novosErros.email = "Email inválido.";
-    setErros(novosErros);
-    if (Object.keys(novosErros).length > 0) return;
-
-    setAGravar(true);
-    setErroGravacao("");
-    try {
-      const criado = await criarAgente({
-        codigoAgente: proximoCodigoAgente(agentes),
-        nome: form.nome,
-        provincia: form.provincia,
-        municipio: form.municipio,
-        tipoAgente: form.tipoAgente,
-        email: form.email,
-      });
-      navigate("/confirm", { state: { ...form, codigoAgente: criado.codigoAgente, estado: criado.estado } });
-    } catch {
-      setErroGravacao("Não foi possível gravar o agente no SharePoint. Tente novamente.");
-    } finally {
-      setAGravar(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submeter} noValidate>
-      <div className="section-title" style={{ marginTop: 2 }}>Dados do agente</div>
-      <div className="field">
-        <label>Nome <span className="req">*</span></label>
-        <input type="text" placeholder="Nome completo" value={form.nome} onChange={(e) => actualizar("nome", e.target.value)} />
-        {erros.nome && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.nome}</div>}
-      </div>
-      <div className="field">
-        <label>Província <span className="req">*</span></label>
-        <select value={form.provincia} onChange={(e) => actualizar("provincia", e.target.value)}>
-          <option value="">Selecione a província</option>
-          {provincias.map((p) => <option key={p}>{p}</option>)}
-        </select>
-        {erros.provincia && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.provincia}</div>}
-      </div>
-      <div className="field">
-        <label>Município <span className="req">*</span></label>
-        <input
-          type="text"
-          list="municipios-reais"
-          placeholder={form.provincia ? "Município" : "Selecione primeiro a província"}
-          disabled={!form.provincia}
-          value={form.municipio}
-          onChange={(e) => actualizar("municipio", e.target.value)}
-        />
-        <datalist id="municipios-reais">
-          {munList.map((m) => <option key={m} value={m} />)}
-        </datalist>
-        {erros.municipio && <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.municipio}</div>}
-        {form.provincia && munList.length > 0 && <div className="hint">Sugestões a partir dos municípios já existentes nesta província.</div>}
-      </div>
-      <div className="field">
-        <label>Email</label>
-        <input type="email" placeholder="opcional@exemplo.com" value={form.email} onChange={(e) => actualizar("email", e.target.value)} />
-        {erros.email ? <div className="hint" style={{ color: "var(--cor-erro)" }}>{erros.email}</div> : <div className="hint">Opcional — validado automaticamente se preenchido.</div>}
-      </div>
-      <div className="field">
-        <label>Tipo de Agente</label>
-        <select value={form.tipoAgente} onChange={(e) => actualizar("tipoAgente", e.target.value as TipoAgente)}>
-          {TIPOS_AGENTE.map((t) => <option key={t}>{t}</option>)}
-        </select>
-      </div>
-      {erroGravacao && <div className="hint" style={{ color: "var(--cor-erro)", marginBottom: 12 }}>{erroGravacao}</div>}
-      <button type="submit" className="btn-primary" disabled={aGravar || carregando}>
-        {aGravar ? "A gravar no SharePoint…" : "Captar Agente"}
-      </button>
-    </form>
-  );
+  return <CaptarWizard />;
 }
 
-interface EstadoConfirm extends DadosCaptar {
+interface EstadoConfirm extends DadosCaptarCompleto {
   codigoAgente: number;
   estado: EstadoAgente;
+  anexosGravados?: number;
+  emailEnviado?: boolean;
 }
 
 export function Confirm() {
@@ -299,6 +218,7 @@ export function Confirm() {
   if (!dados) {
     return (
       <div className="confirm-wrap">
+        <BotaoVoltarConteudo para="/agentes" />
         <p>Nenhuma captação recente para confirmar.</p>
         <button className="btn-primary" onClick={() => navigate("/captar")}>Ir para Captar</button>
       </div>
@@ -309,12 +229,18 @@ export function Confirm() {
     <div className="confirm-wrap">
       <div className="check-circle"><Icon name="check" /></div>
       <h2>Agente captado com sucesso</h2>
-      <p>O agente foi registado na base de dados da rede.</p>
+      <p>O agente foi registado na BD_Agentes_Palhativa. Foi aberto o e-mail para o suporte comercial concluir a criação na rede.</p>
       <div className="card confirm-card">
         <div className="info-row"><span className="k">Código do agente</span><span className="v">{dados.codigoAgente}</span></div>
         <div className="info-row"><span className="k">Nome</span><span className="v">{dados.nome}</span></div>
         <div className="info-row"><span className="k">Tipo</span><span className="v">{dados.tipoAgente}</span></div>
         <div className="info-row"><span className="k">Estado</span><span className="v"><span className={`badge ${badgeClassAgente(dados.estado)}`}>{dados.estado}</span></span></div>
+        {dados.anexosGravados != null && dados.anexosGravados > 0 && (
+          <div className="info-row"><span className="k">Anexos</span><span className="v">{dados.anexosGravados} ficheiro(s) na lista</span></div>
+        )}
+        {dados.emailEnviado && (
+          <div className="info-row"><span className="k">Suporte comercial</span><span className="v">E-mail de notificação preparado</span></div>
+        )}
       </div>
       <button className="btn-primary" onClick={() => navigate("/agentes")}>Ver lista de Agentes</button>
       <button className="btn-secondary" onClick={() => navigate("/captar")}>Captar outro agente</button>
@@ -338,6 +264,7 @@ export function VisitaConcluida() {
   if (!dados) {
     return (
       <div className="confirm-wrap">
+        <BotaoVoltarConteudo para="/visitar" />
         <p>Nenhuma visita recente para confirmar.</p>
         <button className="btn-primary" onClick={() => navigate("/visitar")}>Ir para Visitar</button>
       </div>
@@ -373,7 +300,8 @@ function correspondeAoFiltro(estado: EstadoAgente, filtro: FiltroEstado): boolea
 }
 
 export function Agentes() {
-  const { agentes, carregando, progresso, erro, tentarNovamente } = useAgentesReais();
+  const utilizador = useUtilizadorAtual();
+  const { agentes, carregando, progresso, erro, tentarNovamente } = useAgentesReais(utilizador);
   const [pesquisa, setPesquisa] = useState("");
   const [filtro, setFiltro] = useState<FiltroEstado>("Todos");
 
@@ -415,14 +343,22 @@ export function Perfil() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const agenteParam = searchParams.get("agente");
-  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais();
+  const utilizador = useUtilizadorAtual();
+  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais(utilizador);
   const [tab, setTab] = useState("resumo");
 
-  if (carregando) return <Carregando mensagem="A carregar agente…" />;
-  if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
+  if (carregando && agentes.length === 0) return <Carregando mensagem="A carregar agente…" />;
+  if (erro && agentes.length === 0) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
 
   const agente = agentes.find((a) => a.codigoAgente === Number(agenteParam));
-  if (!agente) return <div className="empty-state">Agente {agenteParam} não encontrado.</div>;
+  if (!agente) {
+    return (
+      <div className="empty-state">
+        <BotaoVoltarConteudo para="/agentes" />
+        Agente {agenteParam} não encontrado.
+      </div>
+    );
+  }
 
   return (
     <>
@@ -499,7 +435,8 @@ function CartaoVisita({ visita }: { visita: Visita }) {
 }
 
 function VisitasDoAgente({ codigoAgente }: { codigoAgente: number }) {
-  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente);
+  const utilizador = useUtilizadorAtual();
+  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente, utilizador);
   if (carregando) return <Carregando mensagem="A carregar visitas…" />;
   if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
   if (visitas.length === 0) return <div className="card empty-state">Ainda sem visitas registadas para este agente.</div>;
@@ -507,7 +444,8 @@ function VisitasDoAgente({ codigoAgente }: { codigoAgente: number }) {
 }
 
 function ChecklistDoAgente({ codigoAgente }: { codigoAgente: number }) {
-  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente);
+  const utilizador = useUtilizadorAtual();
+  const { visitas, carregando, erro, tentarNovamente } = useVisitasDoAgente(codigoAgente, utilizador);
   if (carregando) return <Carregando mensagem="A carregar checklist…" />;
   if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
 
@@ -542,57 +480,121 @@ function ChecklistDoAgente({ codigoAgente }: { codigoAgente: number }) {
 
 export function Visitar() {
   const [searchParams] = useSearchParams();
-  const agenteParam = searchParams.get("agente");
-  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais();
+  const codigoParam = Number(searchParams.get("agente")) || 0;
+  const utilizador = useUtilizadorAtual();
+  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais(utilizador);
 
-  if (carregando) return <Carregando mensagem="A carregar agentes…" />;
+  const agenteInicial = useMemo(
+    () => (codigoParam ? agentes.find((a) => a.codigoAgente === codigoParam) ?? null : null),
+    [codigoParam, agentes],
+  );
+
   if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
 
-  const agente = agentes.find((a) => a.codigoAgente === Number(agenteParam)) ?? agentes[0];
-  if (!agente) return <div className="empty-state">Sem agentes disponíveis para visitar.</div>;
-
-  return <VisitarForm agente={agente} />;
+  return (
+    <>
+      {carregando && agentes.length === 0 && <Carregando mensagem="A carregar a sua carteira…" />}
+      <VisitarForm utilizador={utilizador} agentes={agentes} agenteInicial={agenteInicial} />
+    </>
+  );
 }
 
-type EstadoGps = "a_obter" | "obtida" | "erro";
+type EstadoGps = "pendente" | "a_obter" | "obtida" | "erro";
 
-function VisitarForm({ agente }: { agente: Agente }) {
+function preencherCamposDoAgente(agente: Agente | null) {
+  if (!agente) {
+    return {
+      codigoAgente: 0,
+      contactoAgente: "",
+      nomeParceiro: "",
+      tipoAgenteVisita: TIPOS_AGENTE_VISITA[0],
+    };
+  }
+  return {
+    codigoAgente: agente.codigoAgente,
+    contactoAgente: contactoPrincipalAgente(agente),
+    nomeParceiro: agente.nome,
+    tipoAgenteVisita: tipoAgenteVisitaPadrao(agente.tipoAgente),
+  };
+}
+
+function VisitarForm({
+  utilizador,
+  agentes,
+  agenteInicial,
+}: {
+  utilizador: ReturnType<typeof useUtilizadorAtual>;
+  agentes: Agente[];
+  agenteInicial: Agente | null;
+}) {
   const navigate = useNavigate();
-  const [estadoGps, setEstadoGps] = useState<EstadoGps>("a_obter");
+  const inicial = preencherCamposDoAgente(agenteInicial);
+  const [agente, setAgente] = useState<Agente | null>(agenteInicial);
+  const [estadoGps, setEstadoGps] = useState<EstadoGps>("pendente");
   const [localizacao, setLocalizacao] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mensagemGps, setMensagemGps] = useState("");
+  const [gpsDaBd, setGpsDaBd] = useState(false);
   const [tipoVisita, setTipoVisita] = useState<TipoVisita>(TIPOS_VISITA[0]);
-  const [tipoAgenteVisita, setTipoAgenteVisita] = useState<TipoAgenteVisita>(tipoAgenteVisitaPadrao(agente.tipoAgente));
-  const [codigoAgente, setCodigoAgente] = useState(agente.codigoAgente);
-  const [contactoAgente, setContactoAgente] = useState("");
-  const [nomeParceiro, setNomeParceiro] = useState("");
+  const [tipoAgenteVisita, setTipoAgenteVisita] = useState<TipoAgenteVisita>(inicial.tipoAgenteVisita);
+  const [codigoAgente, setCodigoAgente] = useState(inicial.codigoAgente);
+  const [contactoAgente, setContactoAgente] = useState(inicial.contactoAgente);
+  const [nomeParceiro, setNomeParceiro] = useState(inicial.nomeParceiro);
   const [pontosVenda, setPontosVenda] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [aGravar, setAGravar] = useState(false);
   const [erroGravacao, setErroGravacao] = useState("");
 
-  function obterLocalizacao() {
-    if (!("geolocation" in navigator)) {
-      setEstadoGps("erro");
+  useEffect(() => {
+    if (!agenteInicial) return;
+    const campos = preencherCamposDoAgente(agenteInicial);
+    setAgente(agenteInicial);
+    setCodigoAgente(campos.codigoAgente);
+    setContactoAgente(campos.contactoAgente);
+    setNomeParceiro(campos.nomeParceiro);
+    setTipoAgenteVisita(campos.tipoAgenteVisita);
+  }, [agenteInicial?.id]);
+
+  const aoEscolherAgente = useCallback(
+    async (a: Agente | null) => {
+      if (a?.codigoAgente) {
+        const fresco = await buscarAgentePorCodigo(a.codigoAgente, utilizador);
+        if (fresco) a = fresco;
+      }
+      setAgente(a);
+      const campos = preencherCamposDoAgente(a);
+      setCodigoAgente(campos.codigoAgente);
+      setContactoAgente(campos.contactoAgente);
+      setNomeParceiro(campos.nomeParceiro);
+      setTipoAgenteVisita(campos.tipoAgenteVisita);
+    },
+    [utilizador],
+  );
+
+  async function obterLocalizacao() {
+    setGpsDaBd(false);
+    setMensagemGps("");
+    setEstadoGps("a_obter");
+    const resultado = await obterGeolocalizacaoVisita();
+    if (resultado.ok) {
+      setLocalizacao({ latitude: resultado.latitude, longitude: resultado.longitude });
+      setEstadoGps("obtida");
       return;
     }
-    setEstadoGps("a_obter");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocalizacao({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-        setEstadoGps("obtida");
-      },
-      () => setEstadoGps("erro"),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    setEstadoGps("erro");
+    setMensagemGps(resultado.mensagem);
   }
 
-  useEffect(() => {
-    obterLocalizacao();
-  }, []);
+  function usarLocalizacaoAgenteBd() {
+    if (agente?.latitude == null || agente?.longitude == null) return;
+    setLocalizacao({ latitude: agente.latitude, longitude: agente.longitude });
+    setGpsDaBd(true);
+    setMensagemGps("");
+    setEstadoGps("obtida");
+  }
 
   async function submeter(e: FormEvent) {
     e.preventDefault();
-    if (estadoGps !== "obtida" || !localizacao || aGravar) return;
+    if (!agente || !codigoAgente || estadoGps !== "obtida" || !localizacao || aGravar) return;
     setAGravar(true);
     setErroGravacao("");
     try {
@@ -608,7 +610,12 @@ function VisitarForm({ agente }: { agente: Agente }) {
         longitude: localizacao.longitude,
       });
       navigate(`/checklist?agente=${codigoAgente}&visita=${idVisita}`, {
-        state: { nomeAgente: agente.nome, tipoVisita },
+        state: {
+          nomeAgente: agente.nome,
+          tipoVisita,
+          contactoAgente,
+          codigoAgente,
+        },
       });
     } catch {
       setErroGravacao(MENSAGEM_ERRO_GRAVACAO);
@@ -618,28 +625,89 @@ function VisitarForm({ agente }: { agente: Agente }) {
 
   return (
     <form onSubmit={submeter}>
-      <div className="section-title" style={{ marginTop: 2 }}>Agente seleccionado</div>
-      <div className="agent-item" style={{ cursor: "default" }}>
-        <div className="agent-avatar">{iniciais(agente.nome)}</div>
-        <div><div className="agent-name">{agente.nome}</div><div className="agent-meta">{agente.codigoAgente} · {agente.municipio}, {agente.provincia}</div></div>
-        <div className="agent-right"><span className="link" style={{ color: "var(--cor-azul)", fontSize: 11, fontWeight: 700 }} onClick={() => navigate("/agentes")}>Trocar</span></div>
-      </div>
+      <div className="section-title" style={{ marginTop: 2 }}>1. Escolher agente</div>
+      <EscolherAgentePorCodigo
+        utilizador={utilizador}
+        agentesCarteira={agentes}
+        agente={agente}
+        onAgenteChange={aoEscolherAgente}
+        label="Código do ponto (agente)"
+      />
+      {agente && (
+        <>
+          <div className="section-title">Dados do agente (BD_Agentes_Palhativa)</div>
+          <div className="field">
+            <label>Nome do agente</label>
+            <input type="text" value={agente.nome} disabled style={{ background: "var(--cor-fundo)", color: "var(--cor-texto-secundario)" }} />
+          </div>
+          <div className="field">
+            <label>Número do ponto</label>
+            <input type="text" value={String(agente.codigoAgente)} disabled style={{ background: "var(--cor-fundo)", color: "var(--cor-texto-secundario)" }} />
+          </div>
+          <div className="field">
+            <label>Contacto do agente</label>
+            <input type="tel" placeholder="9XX XXX XXX" value={contactoAgente} onChange={(e) => setContactoAgente(e.target.value)} />
+            <div className="hint">Preenchido a partir da BD; pode corrigir no local se necessário.</div>
+          </div>
+          <div className="agent-item" style={{ cursor: "default", marginBottom: 12 }}>
+            <div className="agent-avatar">{iniciais(agente.nome)}</div>
+            <div>
+              <div className="agent-name">{agente.nome}</div>
+              <div className="agent-meta">
+                {agente.codigoAgente} · {agente.municipio}, {agente.provincia}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      <div className="section-title">2. Localização da visita</div>
+      {estadoGps === "pendente" && (
+        <div className="gps-card">
+          <div className="gps-icon"><Icon name="pin" /></div>
+          <div className="gps-text" style={{ flex: 1 }}>
+            <b>Localização no local da visita</b>
+            <span>No telemóvel, toque no botão para autorizar o GPS (iOS/Safari).</span>
+          </div>
+          <button type="button" className="btn-primary gps-btn" onClick={obterLocalizacao}>
+            Obter localização GPS
+          </button>
+        </div>
+      )}
       {estadoGps === "obtida" && localizacao && (
         <div className="gps-card">
           <div className="gps-icon"><Icon name="pin" /></div>
-          <div className="gps-text"><b>Localização obtida</b><span>Lat {localizacao.latitude.toFixed(4)} · Long {localizacao.longitude.toFixed(4)}</span></div>
+          <div className="gps-text">
+            <b>{gpsDaBd ? "Coordenadas da BD do agente" : "Localização obtida"}</b>
+            <span>Lat {localizacao.latitude.toFixed(4)} · Long {localizacao.longitude.toFixed(4)}</span>
+          </div>
+          {!gpsDaBd && (
+            <button type="button" className="btn-secondary gps-btn-sec" onClick={obterLocalizacao}>
+              Actualizar GPS
+            </button>
+          )}
         </div>
       )}
       {estadoGps === "a_obter" && (
-        <div className="gps-card"><div className="gps-icon"><Icon name="pin" /></div><div className="gps-text"><b>A obter localização…</b><span>Aguarde um instante</span></div></div>
+        <div className="gps-card"><div className="gps-icon"><Icon name="pin" /></div><div className="gps-text"><b>A obter localização…</b><span>Pode demorar até 40 s em rede móvel</span></div></div>
       )}
       {estadoGps === "erro" && (
         <div className="gps-card gps-erro">
           <div className="gps-icon"><Icon name="alert" /></div>
-          <div className="gps-text"><b>Não foi possível obter a localização.</b><span>Active a localização do dispositivo e tente novamente.</span></div>
-          <button type="button" className="btn-secondary" style={{ marginTop: 0, width: "auto", padding: "8px 12px" }} onClick={obterLocalizacao}>Tentar novamente</button>
+          <div className="gps-text">
+            <b>Não foi possível obter a localização.</b>
+            <span>{mensagemGps || "Active a localização do dispositivo e tente novamente."}</span>
+          </div>
+          <button type="button" className="btn-secondary gps-btn-sec" onClick={obterLocalizacao}>
+            Tentar novamente
+          </button>
+          {agente?.latitude != null && agente?.longitude != null && (
+            <button type="button" className="btn-secondary gps-btn-sec" onClick={usarLocalizacaoAgenteBd}>
+              Usar GPS registado na BD
+            </button>
+          )}
         </div>
       )}
+      <div className="section-title">3. Dados da visita</div>
       <div className="field">
         <label>Tipo de visita <span className="req">*</span></label>
         <select value={tipoVisita} onChange={(e) => setTipoVisita(e.target.value as TipoVisita)}>
@@ -653,13 +721,11 @@ function VisitarForm({ agente }: { agente: Agente }) {
           {TIPOS_AGENTE_VISITA.map((t) => <option key={t}>{t}</option>)}
         </select>
       </div>
-      <div className="field"><label>Código do Agente</label><input type="number" value={codigoAgente} onChange={(e) => setCodigoAgente(Number(e.target.value) || 0)} /><div className="hint">Guardado como número na lista SharePoint "Controlo de visitas Agentes".</div></div>
-      <div className="field"><label>Contacto do Agente</label><input type="tel" placeholder="9XX XXX XXX" value={contactoAgente} onChange={(e) => setContactoAgente(e.target.value)} /><div className="hint">A lista de agentes não tem campo de telefone — indique o contacto no local.</div></div>
-      <div className="field"><label>Nome do parceiro</label><input type="text" placeholder="Responsável no local" value={nomeParceiro} onChange={(e) => setNomeParceiro(e.target.value)} /></div>
+      <div className="field"><label>Nome do parceiro</label><input type="text" placeholder="Responsável no local" value={nomeParceiro} onChange={(e) => setNomeParceiro(e.target.value)} /><div className="hint">Por defeito, o nome do agente na BD.</div></div>
       <div className="field"><label>Nº de pontos de venda</label><input type="number" placeholder="0" value={pontosVenda} onChange={(e) => setPontosVenda(e.target.value)} /></div>
       <div className="field"><label>Observações</label><textarea rows={3} placeholder="Notas sobre a visita..." value={observacoes} onChange={(e) => setObservacoes(e.target.value)} /></div>
       {erroGravacao && <div className="aviso-erro">{erroGravacao}</div>}
-      <button type="submit" className="btn-primary" disabled={estadoGps !== "obtida" || aGravar}>
+      <button type="submit" className="btn-primary" disabled={!agente || estadoGps !== "obtida" || aGravar}>
         {aGravar ? "A guardar…" : "Guardar e Continuar para Checklist"}
       </button>
     </form>
@@ -678,7 +744,12 @@ export function Checklist() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const contexto = location.state as { nomeAgente?: string; tipoVisita?: string } | null;
+  const contexto = location.state as {
+    nomeAgente?: string;
+    tipoVisita?: string;
+    contactoAgente?: string;
+    codigoAgente?: number;
+  } | null;
   const idVisita = Number(searchParams.get("visita")) || 0;
   const codigoAgente = Number(searchParams.get("agente")) || 0;
   const [flybanner, setFlybanner] = useState<(typeof OPCOES_FLYBANNER)[number]>("Sim");
@@ -719,7 +790,7 @@ export function Checklist() {
         observacao,
         proximaVisita,
       });
-      navigate("/visita-concluida", {
+      navigate(`/visita-concluida?agente=${codigoAgente}`, {
         state: {
           idVisita,
           codigoAgente,
@@ -737,6 +808,7 @@ export function Checklist() {
   if (!idVisita) {
     return (
       <div className="card empty-state">
+        <BotaoVoltarConteudo para="/visitar" />
         O checklist pertence a uma visita. Comece pelo ecrã Visitar para registar a localização e depois preencha o checklist.
         <button type="button" className="btn-primary" style={{ marginTop: 14 }} onClick={() => navigate("/visitar")}>Ir para Visitar</button>
       </div>
@@ -749,6 +821,24 @@ export function Checklist() {
         <Icon name="check" />
         <span>Visita registada com a localização. Preencha o checklist para a concluir.</span>
       </div>
+      {(contexto?.nomeAgente || codigoAgente > 0) && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="info-row">
+            <span className="k">Agente</span>
+            <span className="v">{contexto?.nomeAgente ?? "—"}</span>
+          </div>
+          <div className="info-row">
+            <span className="k">Nº do ponto</span>
+            <span className="v">{codigoAgente || contexto?.codigoAgente || "—"}</span>
+          </div>
+          {contexto?.contactoAgente && (
+            <div className="info-row">
+              <span className="k">Contacto</span>
+              <span className="v">{contexto.contactoAgente}</span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="section-title">Materiais de Marketing</div>
       <div className="field"><label>Flybanner</label><select value={flybanner} onChange={(e) => setFlybanner(e.target.value as typeof flybanner)}>{OPCOES_FLYBANNER.map((o) => <option key={o}>{o}</option>)}</select></div>
       <div className="field"><label>Merchandising</label><select value={merchandising} onChange={(e) => setMerchandising(e.target.value as typeof merchandising)}>{OPCOES_MERCHANDISING.map((o) => <option key={o}>{o}</option>)}</select></div>
@@ -777,33 +867,33 @@ const faixaRappel = (valor: number) => valor.toLocaleString("pt-PT", { maximumFr
 const montante2 = (valor: number) => valor.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function Rappel() {
-  const { agentes, carregando, erro, tentarNovamente } = useAgentesReais();
-  const [idAgente, setIdAgente] = useState(0);
+  const utilizador = useUtilizadorAtual();
+  const { agentes } = useAgentesReais(utilizador);
+  const [agente, setAgente] = useState<Agente | null>(null);
   const [pvp, setPvp] = useState(0);
 
-  useEffect(() => {
-    if (idAgente === 0 && agentes.length > 0) {
-      const comRappel = agentes.find((a) => temRappel(a.tipoAgente)) ?? agentes[0];
-      setIdAgente(comRappel.codigoAgente);
-    }
-  }, [agentes, idAgente]);
-
-  const agente = agentes.find((a) => a.codigoAgente === idAgente);
   const tipoAgente = agente?.tipoAgente ?? TIPOS_AGENTE[0];
   const resultado = useMemo(() => calcularRappel(tipoAgente, pvp), [tipoAgente, pvp]);
-
-  if (carregando) return <Carregando mensagem="A carregar agentes…" />;
-  if (erro) return <ErroCarregamento tentarNovamente={tentarNovamente} />;
 
   return (
     <div className="rappel-screen">
       <div className="section-title" style={{ marginTop: 2, color: "#fff" }}>Simulador de Rappel</div>
-      <div className="field"><label>Código do Agente</label><input type="number" value={idAgente || ""} onChange={(e) => setIdAgente(Number(e.target.value) || 0)} /></div>
-      <div className="field"><label>Nome do Agente</label><input type="text" value={agente?.nome ?? ""} disabled placeholder={idAgente ? "Agente não encontrado" : "Indique o código"} /></div>
+      <EscolherAgentePorCodigo
+        utilizador={utilizador}
+        agentesCarteira={agentes}
+        agente={agente}
+        onAgenteChange={setAgente}
+      />
+      <div className="field"><label>Nome do Agente</label><input type="text" value={agente?.nome ?? ""} disabled placeholder="Indique o código do agente" /></div>
       <div className="field"><label>Tipo de Agente</label><input type="text" value={agente?.tipoAgente ?? ""} disabled /></div>
+      {agente && (
+        <>
+          <div className="field"><label>Província / Município</label><input type="text" value={[agente.municipio, agente.provincia].filter(Boolean).join(", ")} disabled /></div>
+          <div className="field"><label>Estado</label><input type="text" value={agente.estado} disabled /></div>
+        </>
+      )}
       <div className="field"><label>Montante PVP AOA</label><input type="number" value={pvp || ""} placeholder="0" onChange={(e) => setPvp(Number(e.target.value) || 0)} /><div className="hint">Define a faixa da escala de comissionamento.</div></div>
       <div className="field"><label>Montante sem IVA</label><input type="text" value={pvp ? montante2(resultado.semIva) : ""} placeholder="0,00" disabled /><div className="hint">PVP ÷ 1,14 — é sobre este valor que a comissão incide.</div></div>
-      {!agente && idAgente > 0 && <div className="hint" style={{ color: "#ffd3d3", marginBottom: 12 }}>Não existe agente com o código {idAgente} na lista.</div>}
       {resultado.elegivel ? (
         <div className="rappel-result">
           <div className="rlabel">Comissão estimada</div>
@@ -839,11 +929,87 @@ export function Rappel() {
   );
 }
 
+const COMUNICACOES_MAIS = [
+  {
+    id: "rappel-out",
+    gradient: "comm-img",
+    rotulo: "CAMPANHA",
+    icon: "megaphone" as const,
+    categoria: "Rede de Agentes",
+    titulo: "Nova escala de rappel entra em vigor em Outubro",
+    data: "09 Set 2026",
+  },
+  {
+    id: "form-checklist",
+    gradient: "comm-img comm-img--alt",
+    rotulo: "FORMAÇÃO",
+    icon: "book" as const,
+    categoria: "Capacitação",
+    titulo: "Como preencher correctamente o checklist de visita",
+    data: "02 Set 2026",
+  },
+] as const;
+
 export function Mais() {
+  const utilizador = useUtilizadorAtual();
+  const [aActualizar, setAActualizar] = useState(false);
+
+  function actualizarApp() {
+    setAActualizar(true);
+    invalidarCacheAgentes();
+    window.location.reload();
+  }
+
   return (
     <>
-      <div className="section-title" style={{ marginTop: 2 }}>Comunicações</div>
-      <div className="card empty-state">Ainda não há comunicações ligadas ao SharePoint.</div>
+      <div className="section-title" style={{ marginTop: 2 }}>
+        Comunicações
+      </div>
+      {COMUNICACOES_MAIS.map((item) => (
+        <div className="comm-card" key={item.id}>
+          <div className={item.gradient}>
+            <Icon name={item.icon} />
+            {item.rotulo}
+          </div>
+          <div className="comm-body">
+            <div className="comm-cat">{item.categoria}</div>
+            <div className="comm-title">{item.titulo}</div>
+            <div className="comm-date">{item.data}</div>
+          </div>
+        </div>
+      ))}
+
+      <div className="section-title">Ferramentas</div>
+      <Link to="/rappel" className="agent-item">
+        <div className="agent-avatar" style={{ background: "var(--cor-magenta)" }}>
+          <Icon name="wallet" />
+        </div>
+        <div>
+          <div className="agent-name">Simulador de Rappel</div>
+          <div className="agent-meta">Calcular comissão por PVP</div>
+        </div>
+        <Icon name="chevron" />
+      </Link>
+
+      <div className="section-title">Aplicação</div>
+      {utilizador && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="info-row">
+            <span className="k">Consultor</span>
+            <span className="v">{utilizador.nome}</span>
+          </div>
+          <div className="info-row">
+            <span className="k">Conta</span>
+            <span className="v">{utilizador.email}</span>
+          </div>
+        </div>
+      )}
+      <button type="button" className="btn-secondary" disabled={aActualizar} onClick={actualizarApp}>
+        {aActualizar ? "A actualizar…" : "Actualizar app"}
+      </button>
+      <button type="button" className="btn-secondary" onClick={() => irParaListaDeApps()}>
+        Sair
+      </button>
     </>
   );
 }

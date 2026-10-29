@@ -3,9 +3,21 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./icons.css";
 import App from "./App.tsx";
+import { UtilizadorProvider } from "./auth";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const root = createRoot(document.getElementById("root")!);
+if (import.meta.env.DEV) {
+  root.render(
+    <StrictMode>
+      <UtilizadorProvider>
+        <App />
+      </UtilizadorProvider>
+    </StrictMode>,
+  );
+} else {
+  root.render(
+    <UtilizadorProvider>
+      <App />
+    </UtilizadorProvider>,
+  );
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ControlodevisitasAgentesService } from "./generated";
+import { mesmaPessoaQue } from "./sharepoint";
 import type {
   OPCOES_FLYBANNER,
   OPCOES_MERCHANDISING,
@@ -72,6 +73,7 @@ export interface Visita {
   pontosVenda?: number;
   observacao: string;
   utilizador: string;
+  emailAutor?: string;
   flybanner: string;
   merchandising: string;
   placaPontoZap: string;
@@ -114,7 +116,7 @@ function mapearVisita(bruto: Record<string, unknown>): Visita {
   const placaPontoZap = valorEscolha(bruto.PlacapontoZap);
   const stockDeBoxes = valorEscolha(bruto.StockdeBoxes);
   const zapadinhas = valoresEscolha(bruto.Zapadinhas);
-  const autor = bruto.Author as { DisplayName?: string } | undefined;
+  const autor = bruto.Author as { DisplayName?: string; Email?: string } | undefined;
 
   return {
     id: Number(bruto.ID) || 0,
@@ -130,6 +132,7 @@ function mapearVisita(bruto: Record<string, unknown>): Visita {
     pontosVenda: typeof bruto.N_x00ba_depontosdevenda === "number" ? bruto.N_x00ba_depontosdevenda : undefined,
     observacao: String(bruto.Observa_x00e7__x00e3_o ?? ""),
     utilizador: autor?.DisplayName ?? "",
+    emailAutor: autor?.Email?.trim() || undefined,
     flybanner,
     merchandising,
     placaPontoZap,
@@ -163,10 +166,16 @@ function escolhaMultipla(campo: string, valores: readonly string[]): Record<stri
 }
 
 function numeroOuIndefinido(texto: string): number | undefined {
-  const limpo = texto.replace(/\s/g, "");
-  if (!limpo) return undefined;
-  const n = Number(limpo);
+  const digitos = texto.replace(/\D/g, "");
+  if (!digitos) return undefined;
+  const n = Number(digitos);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/** Contacto numérico da lista de visitas → texto para ecrãs. */
+export function contactoVisitaComoTexto(valor?: number): string {
+  if (valor == null || !Number.isFinite(valor)) return "";
+  return String(Math.trunc(valor));
 }
 
 /**
@@ -253,46 +262,75 @@ function filtroPeriodo(inicio: string, fim: string): string {
   return `Datadavisita ge '${inicio}T00:00:00Z' and Datadavisita lt '${fim}T00:00:00Z'`;
 }
 
-async function porJanelasMensais(
-  meses: number,
-  filtroExtra: string,
-  campos?: string[],
-): Promise<Visita[]> {
+/** Visitas do consultor logado (Author) — filtro no cliente; OData Author/Codigo falha na lista. */
+export function visitaDoConsultor(
+  visita: Pick<Visita, "utilizador" | "emailAutor">,
+  utilizador: { nome: string; email: string },
+): boolean {
+  const emailVisita = visita.emailAutor?.trim().toLowerCase();
+  const emailSessao = utilizador.email.trim().toLowerCase();
+  if (emailVisita && emailSessao && emailVisita === emailSessao) return true;
+  return mesmaPessoaQue(visita.utilizador, utilizador);
+}
+
+interface OpcoesJanelasVisitas {
+  campos?: string[];
+  utilizador?: { nome: string; email: string } | null;
+  codigoAgente?: number;
+}
+
+async function porJanelasMensais(meses: number, opcoes: OpcoesJanelasVisitas = {}): Promise<Visita[]> {
   const hoje = new Date();
   const janelas = Array.from({ length: meses }, (_, i) => [primeiroDiaDoMes(hoje, -i), primeiroDiaDoMes(hoje, 1 - i)]);
 
-  const paginas = await Promise.all(
-    janelas.map(([inicio, fim]) =>
-      ControlodevisitasAgentesService.getAll({
-        top: 4000,
+  const paginas: Awaited<ReturnType<typeof ControlodevisitasAgentesService.getAll>>[] = [];
+  for (const [inicio, fim] of janelas) {
+    paginas.push(
+      await ControlodevisitasAgentesService.getAll({
+        top: 1500,
         orderBy: ["Datadavisita desc"],
-        select: campos,
-        filter: filtroExtra ? `${filtroPeriodo(inicio, fim)} and ${filtroExtra}` : filtroPeriodo(inicio, fim),
+        select: opcoes.campos,
+        filter: filtroPeriodo(inicio, fim),
       }),
-    ),
-  );
+    );
+  }
 
   if (paginas.every((p) => !p.success)) {
     throw paginas[0]?.error ?? new Error("Falha ao carregar visitas");
   }
 
-  return paginas
+  let lista = paginas
     .filter((p) => p.success)
-    .flatMap((p) => p.data.map((r) => mapearVisita(r as unknown as Record<string, unknown>)))
-    .sort((a, b) => b.dataVisita.localeCompare(a.dataVisita));
+    .flatMap((p) => p.data.map((r) => mapearVisita(r as unknown as Record<string, unknown>)));
+
+  if (opcoes.utilizador?.nome || opcoes.utilizador?.email) {
+    lista = lista.filter((v) => visitaDoConsultor(v, opcoes.utilizador!));
+  }
+  if (opcoes.codigoAgente) {
+    lista = lista.filter((v) => v.codigoAgente === opcoes.codigoAgente);
+  }
+
+  return lista.sort((a, b) => b.dataVisita.localeCompare(a.dataVisita));
 }
 
-export function visitasDoAgente(codigoAgente: number): Promise<Visita[]> {
-  return porJanelasMensais(MESES_HISTORICO, `Codigo eq ${codigoAgente}`);
+export function visitasDoAgente(
+  codigoAgente: number,
+  utilizador?: { nome: string; email: string } | null,
+): Promise<Visita[]> {
+  return porJanelasMensais(MESES_HISTORICO, { utilizador, codigoAgente });
 }
 
-const CAMPOS_RESUMO = ["ID", "Codigo", "Datadavisita", "DatadaPr_x00f3_ximaVisita"];
+const CAMPOS_RESUMO = ["ID", "Codigo", "Datadavisita", "DatadaPr_x00f3_ximaVisita", "Author"];
 
 export interface ResumoVisitas {
   hoje: number;
   esteMes: number;
   mesAnterior: number;
   proximos7Dias: number;
+  /** Agentes distintos (código) com visita registada no mês corrente. */
+  agentesVisitadosEsteMes: number;
+  /** Próxima visita agendada para hoje (campo DatadaPróximaVisita). */
+  agendadosHoje: number;
 }
 
 /**
@@ -302,18 +340,25 @@ export interface ResumoVisitas {
  * porque "DatadaPróximaVisita" também não está indexada e não pode liderar
  * um filtro.
  */
-export async function resumoVisitas(): Promise<ResumoVisitas> {
-  const visitas = await porJanelasMensais(2, "", CAMPOS_RESUMO);
+export async function resumoVisitas(utilizador: { nome: string; email: string }): Promise<ResumoVisitas> {
+  if (!utilizador.nome.trim() && !utilizador.email.trim()) {
+    return { hoje: 0, esteMes: 0, mesAnterior: 0, proximos7Dias: 0, agentesVisitadosEsteMes: 0, agendadosHoje: 0 };
+  }
+  const visitas = await porJanelasMensais(2, { campos: CAMPOS_RESUMO, utilizador });
   const agora = new Date();
   const hoje = apenasData(agora.toISOString());
   const inicioMes = primeiroDiaDoMes(agora, 0);
   const inicioMesAnterior = primeiroDiaDoMes(agora, -1);
   const mesmoDiaMesAnterior = `${inicioMesAnterior.slice(0, 8)}${hoje.slice(8)}`;
   const daqui7Dias = apenasData(new Date(Date.now() + 7 * 86400000).toISOString());
+  const visitasNoMes = visitas.filter((v) => apenasData(v.dataVisita) >= inicioMes);
+  const agentesVisitadosEsteMes = new Set(
+    visitasNoMes.map((v) => v.codigoAgente).filter((c) => c > 0),
+  ).size;
 
   return {
     hoje: visitas.filter((v) => apenasData(v.dataVisita) === hoje).length,
-    esteMes: visitas.filter((v) => apenasData(v.dataVisita) >= inicioMes).length,
+    esteMes: visitasNoMes.length,
     mesAnterior: visitas.filter((v) => {
       const d = apenasData(v.dataVisita);
       return d >= inicioMesAnterior && d <= mesmoDiaMesAnterior;
@@ -322,33 +367,106 @@ export async function resumoVisitas(): Promise<ResumoVisitas> {
       const d = apenasData(v.proximaVisita);
       return d >= hoje && d <= daqui7Dias;
     }).length,
+    agentesVisitadosEsteMes,
+    agendadosHoje: visitas.filter((v) => apenasData(v.proximaVisita) === hoje).length,
   };
 }
 
-export function useResumoVisitas(): { resumo: ResumoVisitas | null; carregando: boolean; erro: boolean } {
-  const [resumo, setResumo] = useState<ResumoVisitas | null>(null);
-  const [carregando, setCarregando] = useState(true);
+export function agentesPorVisitar(totalCarteira: number, agentesVisitadosEsteMes: number): number {
+  if (totalCarteira <= 0) return 0;
+  return Math.max(0, totalCarteira - agentesVisitadosEsteMes);
+}
+
+let promessaResumo: Promise<ResumoVisitas> | null = null;
+let chaveResumoAtiva = "";
+let resumoEmCache: ResumoVisitas | null = null;
+
+function carregarResumoVisitas(utilizador: { nome: string; email: string }): Promise<ResumoVisitas> {
+  const chave = `${utilizador.nome}\0${utilizador.email}`;
+  if (promessaResumo && chaveResumoAtiva === chave) return promessaResumo;
+  chaveResumoAtiva = chave;
+  promessaResumo = resumoVisitas(utilizador)
+    .then((dados) => {
+      resumoEmCache = dados;
+      return dados;
+    })
+    .catch((e) => {
+      promessaResumo = null;
+      throw e;
+    });
+  return promessaResumo;
+}
+
+export function invalidarCacheResumoVisitas() {
+  promessaResumo = null;
+  chaveResumoAtiva = "";
+  resumoEmCache = null;
+}
+
+export function useResumoVisitas(
+  utilizador: { nome: string; email: string } | null,
+  opcoes?: { adiarMs?: number; activo?: boolean },
+): { resumo: ResumoVisitas | null; carregando: boolean; erro: boolean } {
+  const adiarMs = opcoes?.adiarMs ?? 0;
+  const activo = opcoes?.activo ?? true;
+  const [resumo, setResumo] = useState<ResumoVisitas | null>(() => resumoEmCache);
+  const [carregando, setCarregando] = useState(() => activo && !resumoEmCache);
   const [erro, setErro] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
-    resumoVisitas()
-      .then((dados) => {
-        if (!cancelado) {
-          setResumo(dados);
-          setCarregando(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelado) {
-          setErro(true);
-          setCarregando(false);
-        }
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (!activo) {
+      setCarregando(false);
+      return () => {
+        cancelado = true;
+      };
+    }
+
+    if (!utilizador?.nome && !utilizador?.email) {
+      setResumo(null);
+      setCarregando(true);
+      setErro(false);
+      return () => {
+        cancelado = true;
+      };
+    }
+
+    if (resumoEmCache) {
+      setResumo(resumoEmCache);
+      setCarregando(false);
+      return () => {
+        cancelado = true;
+      };
+    }
+
+    const executar = () => {
+      setCarregando(true);
+      setErro(false);
+      carregarResumoVisitas(utilizador)
+        .then((dados) => {
+          if (!cancelado) {
+            setResumo(dados);
+            setCarregando(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelado) {
+            setErro(true);
+            setCarregando(false);
+          }
+        });
+    };
+
+    if (adiarMs > 0) timer = setTimeout(executar, adiarMs);
+    else executar();
+
     return () => {
       cancelado = true;
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [activo, adiarMs, utilizador?.nome, utilizador?.email]);
 
   return { resumo, carregando, erro };
 }
@@ -360,7 +478,10 @@ interface EstadoVisitas {
   tentarNovamente: () => void;
 }
 
-export function useVisitasDoAgente(codigoAgente: number): EstadoVisitas {
+export function useVisitasDoAgente(
+  codigoAgente: number,
+  utilizador: { nome: string; email: string } | null,
+): EstadoVisitas {
   const [visitas, setVisitas] = useState<Visita[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(false);
@@ -370,7 +491,14 @@ export function useVisitasDoAgente(codigoAgente: number): EstadoVisitas {
     let cancelado = false;
     setCarregando(true);
     setErro(false);
-    visitasDoAgente(codigoAgente)
+    if (!utilizador?.nome && !utilizador?.email) {
+      setVisitas([]);
+      setCarregando(true);
+      return () => {
+        cancelado = true;
+      };
+    }
+    visitasDoAgente(codigoAgente, utilizador)
       .then((dados) => {
         if (!cancelado) {
           setVisitas(dados);
@@ -386,7 +514,7 @@ export function useVisitasDoAgente(codigoAgente: number): EstadoVisitas {
     return () => {
       cancelado = true;
     };
-  }, [codigoAgente, tentativa]);
+  }, [codigoAgente, tentativa, utilizador?.nome, utilizador?.email]);
 
   return { visitas, carregando, erro, tentarNovamente: () => setTentativa((t) => t + 1) };
 }

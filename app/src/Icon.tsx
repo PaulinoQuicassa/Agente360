@@ -1,7 +1,7 @@
 export type IconName =
   | "home" | "people" | "user-check" | "user-plus" | "search" | "file"
   | "pin" | "plus" | "menu" | "upload" | "check" | "alert" | "chevron"
-  | "megaphone" | "book" | "wallet" | "clipboard";
+  | "megaphone" | "book" | "wallet" | "clipboard" | "arrow-left";
 
 export function Icon({ name, className = "ico" }: { name: IconName; className?: string }) {
   return (
@@ -27,6 +27,7 @@ export function IconSprite() {
       <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 2.8 19.5h18.4L12 3.5z"/><path d="M12 10v4.5M12 17.5h.01"/></symbol>
       <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></symbol>
       <symbol id="i-megaphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m3 11 12-6v14L3 13v-2z"/><path d="M15 8.5c1.8.6 3 2.1 3 3.5s-1.2 2.9-3 3.5"/><path d="m6.5 13.2.8 5.3c.1.8.8 1.5 1.5 1.5h1.2"/></symbol>
       <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16.5H6.5A2.5 2.5 0 0 0 4 22V5.5z"/><path d="M4 19h12"/></symbol>
       <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1"/></symbol>
