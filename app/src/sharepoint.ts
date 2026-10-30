@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BD_Agentes_PalhativaService, type BD_Agentes_PalhativaModel } from "./generated";
 import { municipiosOficiaisAngola } from "./dados/municipiosAngola";
 import { resolverProvinciaCatalogo } from "./dados/provinciasAngola";
+import { registarErro, registarEtapa } from "./diagnostico";
 import { descobrirGrafiasConsultor, mesmaPessoa, mesmaPessoaQue, valoresExactosConsultor } from "./identidade";
 import { ERRO_FORA_DO_HOST, dentroDoPowerApps } from "./powerHost";
 
@@ -236,22 +237,100 @@ export function filtroConsultorField5(utilizador: UtilizadorConsultor): string |
  * As grafias descobertas (validadas por mesmaPessoaQue) passam a integrar o
  * filtro exacto da carteira, da pesquisa por código e das sugestões.
  */
-async function descobrirGrafiaConsultor(utilizador: UtilizadorConsultor): Promise<void> {
-  const encontrados = await descobrirGrafiasConsultor(
+const TIMEOUT_DESCOBERTA_MS = 10000;
+const TIMEOUT_VARRIMENTO_MS = 30000;
+const CHAVE_CACHE_GRAFIAS = "agente360-grafias-consultor-v1";
+const VALIDADE_CACHE_GRAFIAS_MS = 24 * 60 * 60 * 1000;
+
+function lerCacheGrafias(utilizador: UtilizadorConsultor): string[] | null {
+  try {
+    const todos = JSON.parse(localStorage.getItem(CHAVE_CACHE_GRAFIAS) ?? "{}") as Record<string, { em: number; valores: string[] }>;
+    const item = todos[chaveUtilizador(utilizador)];
+    if (!item || Date.now() - item.em > VALIDADE_CACHE_GRAFIAS_MS) return null;
+    return item.valores;
+  } catch {
+    return null;
+  }
+}
+
+function gravarCacheGrafias(utilizador: UtilizadorConsultor, valores: string[]) {
+  try {
+    const todos = JSON.parse(localStorage.getItem(CHAVE_CACHE_GRAFIAS) ?? "{}") as Record<string, { em: number; valores: string[] }>;
+    todos[chaveUtilizador(utilizador)] = { em: Date.now(), valores };
+    localStorage.setItem(CHAVE_CACHE_GRAFIAS, JSON.stringify(todos));
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
+/** Pesquisa rápida por prefixos do nome (startswith + ne no field_5). */
+function descobrirPorPrefixos(utilizador: UtilizadorConsultor): Promise<string[]> {
+  return descobrirGrafiasConsultor(
     utilizador,
     valoresExactosConsultor(utilizador),
     async ({ prefixos, excluir, top }) => {
       const comeca = `(${prefixos.map((p) => `startswith(field_5,'${escaparOData(p)}')`).join(" or ")})`;
       const exclusao = excluir.map((v) => ` and field_5 ne '${escaparOData(v)}'`).join("");
-      const resultado = await comTimeout(
-        BD_Agentes_PalhativaService.getAll({ top, filter: `${comeca}${exclusao}`, select: ["ID", "field_5"] }),
-        TIMEOUT_PAGINA_MS,
-      );
+      const resultado = await BD_Agentes_PalhativaService.getAll({ top, filter: `${comeca}${exclusao}`, select: ["ID", "field_5"] });
       if (!resultado.success) throw resultado.error ?? new Error("Falha ao identificar o consultor");
       return resultado.data.map((r) => r.field_5);
     },
+    { maxConsultas: 6 },
   );
+}
+
+/** Alternativa só com filtros por ID: lê o field_5 de toda a lista (2 colunas). */
+async function descobrirPorVarrimento(utilizador: UtilizadorConsultor): Promise<string[]> {
+  const encontrados = new Set<string>();
+  let ultimoId = 0;
+  for (let pag = 0; pag < 30; pag += 1) {
+    const resultado = await BD_Agentes_PalhativaService.getAll({
+      top: 500,
+      orderBy: ["ID asc"],
+      filter: ultimoId > 0 ? `ID gt ${ultimoId}` : undefined,
+      select: ["ID", "field_5"],
+    });
+    if (!resultado.success) throw resultado.error ?? new Error("Falha ao ler a lista de agentes");
+    for (const raw of resultado.data) {
+      if (raw.field_5 && mesmaPessoaQue(raw.field_5, utilizador)) encontrados.add(raw.field_5);
+    }
+    if (resultado.data.length < 500) break;
+    ultimoId = resultado.data.reduce((max, r) => Math.max(max, r.ID ?? 0), ultimoId);
+  }
+  return [...encontrados];
+}
+
+/**
+ * Nunca lança nem bloqueia a carteira por mais do que o tempo máximo: se a
+ * descoberta falhar, a carteira carrega com o filtro exacto.
+ */
+async function descobrirGrafiaConsultor(utilizador: UtilizadorConsultor): Promise<void> {
+  const emCache = lerCacheGrafias(utilizador);
+  if (emCache) {
+    if (emCache.length) grafiasConsultorDescobertas.set(chaveUtilizador(utilizador), new Set(emCache));
+    return;
+  }
+
+  registarEtapa("A procurar o consultor no SharePoint");
+  let encontrados: string[] | null = null;
+  try {
+    encontrados = await comTimeout(descobrirPorPrefixos(utilizador), TIMEOUT_DESCOBERTA_MS);
+  } catch (erro) {
+    registarErro("Pesquisa do consultor por prefixo", erro);
+  }
+
+  if (encontrados === null) {
+    try {
+      registarEtapa("A procurar o consultor em toda a lista");
+      encontrados = await comTimeout(descobrirPorVarrimento(utilizador), TIMEOUT_VARRIMENTO_MS);
+    } catch (erro) {
+      registarErro("Pesquisa do consultor na lista", erro);
+    }
+  }
+
+  if (encontrados === null) return;
   if (encontrados.length) grafiasConsultorDescobertas.set(chaveUtilizador(utilizador), new Set(encontrados));
+  gravarCacheGrafias(utilizador, encontrados);
 }
 
 /** Filtro do consultor depois de resolvida a grafia real em field_5. */
@@ -259,10 +338,7 @@ async function resolverFiltroConsultor(utilizador: UtilizadorConsultor): Promise
   const chave = chaveUtilizador(utilizador);
   let promessa = promessasGrafiaConsultor.get(chave);
   if (!promessa) {
-    promessa = descobrirGrafiaConsultor(utilizador).catch((erro) => {
-      promessasGrafiaConsultor.delete(chave);
-      throw erro;
-    });
+    promessa = descobrirGrafiaConsultor(utilizador).catch(() => undefined);
     promessasGrafiaConsultor.set(chave, promessa);
   }
   await promessa;
@@ -327,6 +403,7 @@ async function buscarAgentesCarteira(utilizador: UtilizadorConsultor): Promise<A
   const porId = new Map<number, Agente>();
   let ultimoId = 0;
   for (let pag = 0; pag < MAX_PAGINAS; pag += 1) {
+    registarEtapa(`A carregar a carteira (página ${pag + 1}, ${porId.size} agentes)`);
     const pagina = await buscarPaginaAgentes(filtroConsultor, ultimoId);
     if (!pagina.length) break;
     for (const a of pagina) {
@@ -358,14 +435,19 @@ function carregarCarteira(utilizador: UtilizadorConsultor): Promise<Agente[]> {
   ouvintesCarteira.forEach((fn) => fn({ carregando: true, erro: false }));
 
   promessaCarteira = buscarAgentesCarteira(utilizador)
-    .catch(() => buscarAgentesCarteira(utilizador))
+    .catch((erro) => {
+      registarErro("Carteira (1.ª tentativa)", erro);
+      return buscarAgentesCarteira(utilizador);
+    })
     .then((lista) => {
+      registarEtapa(`Carteira carregada (${lista.length} agentes)`);
       substituirCacheCarteira(lista);
       carteiraPronta = true;
       ouvintesCarteira.forEach((fn) => fn({ carregando: false, erro: false }));
       return lista;
     })
     .catch((erro) => {
+      registarErro("Carteira", erro);
       promessaCarteira = null;
       carteiraPronta = false;
       ouvintesCarteira.forEach((fn) => fn({ carregando: false, erro: true }));

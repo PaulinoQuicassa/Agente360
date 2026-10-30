@@ -47,6 +47,7 @@ import {
   type Visita,
 } from "./visitas";
 import { obterGeolocalizacaoVisita } from "./geolocalizacao";
+import { lerDiagnostico } from "./diagnostico";
 
 const CORES_BARRA = ["var(--cor-azul)", "var(--cor-magenta)", "var(--cor-amarelo-escuro)"];
 
@@ -56,8 +57,41 @@ function Delta({ valor, sufixo = "vs. mês ant." }: { valor: number; sufixo?: st
   return <div className="delta">= {sufixo}</div>;
 }
 
-function Carregando({ mensagem = "A carregar…" }: { mensagem?: string }) {
-  return <div className="empty-state">{mensagem}</div>;
+const LIMITE_CARREGAMENTO_LENTO_MS = 15000;
+
+function Carregando({ mensagem = "A carregar…", tentarNovamente }: { mensagem?: string; tentarNovamente?: () => void }) {
+  const { utilizador } = useEstadoAuth();
+  const [inicio] = useState(() => Date.now());
+  const [agora, setAgora] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setAgora(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const decorrido = agora - inicio;
+  if (decorrido < LIMITE_CARREGAMENTO_LENTO_MS) return <div className="empty-state">{mensagem}</div>;
+
+  const diag = lerDiagnostico();
+  return (
+    <div className="empty-state">
+      {mensagem}
+      <div className="diagnostico-arranque">
+        <b>Está a demorar mais do que o normal ({Math.round(decorrido / 1000)} s).</b>
+        <div>Passo: {diag.etapa || "—"}</div>
+        {diag.erro && <div>Último erro: {diag.erro}</div>}
+        <div>Utilizador: {utilizador ? `${utilizador.nome} · ${utilizador.email || "sem e-mail"}` : "ainda não identificado"}</div>
+      </div>
+      <button
+        type="button"
+        className="btn-secondary"
+        style={{ width: "auto", marginTop: 12, padding: "8px 16px" }}
+        onClick={tentarNovamente ?? (() => window.location.reload())}
+      >
+        Tentar novamente
+      </button>
+    </div>
+  );
 }
 
 function IndicadoresVisitas() {

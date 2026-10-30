@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getContext, type IContext } from "@microsoft/power-apps/app";
+import { registarErro, registarEtapa } from "./diagnostico";
 import { dentroDoPowerApps, marcarHostPowerApps } from "./powerHost";
 
 export interface UtilizadorSessao {
@@ -76,10 +77,11 @@ export function iniciarLigacaoHost(): void {
 
 async function identificarUtilizadorHost(): Promise<UtilizadorSessao | null> {
   const noHost = dentroDoPowerApps();
-  const atrasosMs = noHost ? [0, 300, 800, 1600, 3200] : [0];
-  const esperaMs = noHost ? 20000 : 6000;
-  for (const atraso of atrasosMs) {
+  const atrasosMs = noHost ? [0, 500, 1500] : [0];
+  const esperaMs = noHost ? 15000 : 6000;
+  for (const [i, atraso] of atrasosMs.entries()) {
     if (atraso > 0) await sleep(atraso);
+    registarEtapa(`A identificar o consultor no Power Apps (tentativa ${i + 1})`);
     try {
       const ctx = await Promise.race([
         getContext(),
@@ -92,10 +94,11 @@ async function identificarUtilizadorHost(): Promise<UtilizadorSessao | null> {
         gravarCacheSessao(sessao);
         return sessao;
       }
-    } catch {
-      /* host ainda a inicializar — tentar de novo */
+    } catch (erro) {
+      registarErro("Identificação do consultor", erro);
     }
   }
+  registarErro("Identificação do consultor", "o Power Apps não devolveu o utilizador");
   return null;
 }
 
